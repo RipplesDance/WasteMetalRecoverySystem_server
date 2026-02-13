@@ -9,13 +9,16 @@
 #include<QMap>
 #include<QDir>
 #include<QDataStream>
+#include<QDateTime>
 #include<QFile>
 #include<QListWidgetItem>
 #include<QVector>
 #include"transaction.h"
 #include"clientInfo.h"
+#include"dealDialog.h"
 
 enum {
+    HANDSHAKE = 0,
     NEW_TRANSACTION = 1,
     TRANSACTION_STATUS = 2,
     METAL_PRICE = 3,
@@ -39,7 +42,9 @@ public:
     void sendMsgToSocket(QTcpSocket* socket, int msg_type, transaction data);
     void updateLabel();
     void readLocalTransaction();
-    void updataListWidget();
+    void updateListWidget();
+    QTcpSocket* findSocketFromUuid(QString uuid);
+    void TransactionHandled(transaction data, bool isAccept);
 
 public slots:
     void clientConnected();
@@ -47,12 +52,16 @@ public slots:
     void onNewConnection();
     void sortBoxChanged(QString way);
     void selectedItem(QListWidgetItem *item);
+//    void dealDialogFinished(bool isAccept);
 
 private:
     Ui::MainWindow *ui;
     QTcpServer *server;
     QMap<QTcpSocket*, clientInfo*> clientMap;
     QVector<transaction> fileVector;
+    QVector<transaction> finishedFileVector;
+
+    dealDialog* deal_dialog;
 
 };
 #endif // MAINWINDOW_H

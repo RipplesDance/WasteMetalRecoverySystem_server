@@ -24,32 +24,35 @@ public:
     void setSellingWay(QString sellingWay);
 
     void setFilePath(QString filePath);
+    void setUuid(QString uuid);
+    void toogleAccept();
+    void setResultTime(QDateTime resultTime);
 
     //quest
-    const QString getId();
-    const QString selectType();
-    const QString selectUsagePurpose();
-    const QString selectSellingWay();
+    QString getId();
+    QString selectType();
+    QString selectUsagePurpose();
+    QString selectSellingWay();
     double selectEnergyDensity();
     double selectWeight();
     double selectSOH();
     double selectPrice();
     double selectLeagcyElectricity();
     bool checkStatus();
-    const QDateTime selectSubmittedTime();
-    const QDateTime selectResultTime();
+    QDateTime selectSubmittedTime();
+    QDateTime selectResultTime();
 
-    const QString selectFilePath();
+    QString selectFilePath();
+    QString getUuid();
 
 protected:
     void setSubmittedTime(QDateTime submittedTime);
-    void toogleAccept();
-
     void changeClassVersion(int version);
 
 private:
     QString idGenerator();
 
+    QString uuid;
     QString id;
     QString type;
     QString usagePurpose;

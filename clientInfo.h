@@ -7,17 +7,20 @@
 class clientInfo
 {
 public:
-    clientInfo(QString ip = NULL);
+    clientInfo(QString uuid);
     ~clientInfo();
     void setIp(QString ip);
 
     //quest
     QDateTime selectLoginTime();
     QString getIp();
+    QString getUuid();
 
 private:
     QDateTime loginTime;
     QString ip;
+    QString uuid;
+
 };
 
 #endif // CLIENTINFO_H

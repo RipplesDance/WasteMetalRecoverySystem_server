@@ -17,16 +17,19 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     clientInfo.cpp \
+    dealDialog.cpp \
     main.cpp \
     mainwindow.cpp \
     transaction.cpp
 
 HEADERS += \
     clientInfo.h \
+    dealDialog.h \
     mainwindow.h \
     transaction.h
 
 FORMS += \
+    dealDialog.ui \
     mainwindow.ui
 
 # Default rules for deployment.

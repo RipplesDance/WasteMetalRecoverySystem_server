@@ -6,14 +6,25 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    deal_dialog = new dealDialog(this);
+    deal_dialog->hide();
+//    connect(deal_dialog, &dealDialog::finished,this,&MainWindow::dealDialogFinished);
 
     ui->sort_box->addItem("按订单创建时间正序");
     ui->sort_box->addItem("按订单创建时间倒序");
     ui->sort_box->addItem("按报价大小正序");
     ui->sort_box->addItem("按报价大小倒序");
 
+    ui->sort_box_2->addItem("按订单创建时间正序");
+    ui->sort_box_2->addItem("按订单创建时间倒序");
+    ui->sort_box_2->addItem("按报价大小正序");
+    ui->sort_box_2->addItem("按报价大小倒序");
+//    ui->transaction_tap->set
+
     connect(ui->sort_box, &QComboBox::currentTextChanged, this, &MainWindow::sortBoxChanged);
-    connect(ui->pendingTransaction_listWidget, &QListWidget::itemClicked, this, &MainWindow::selectedItem);
+    connect(ui->sort_box_2, &QComboBox::currentTextChanged, this, &MainWindow::sortBoxChanged);
+    connect(ui->pendingTransaction_listWidget, &QListWidget::itemDoubleClicked, this, &MainWindow::selectedItem);
+    connect(ui->finishedTransaction_listWidget, &QListWidget::itemDoubleClicked, this, &MainWindow::selectedItem);
 
     server = new QTcpServer(this);
 //    connect(server,)
@@ -42,41 +53,121 @@ void MainWindow::init()
             qDebug() << "Dir created";
         }
     readLocalTransaction();
+    sortBoxChanged(ui->sort_box->currentText());
+    updateListWidget();
     updateLabel();
 }
 
 void MainWindow::selectedItem(QListWidgetItem *item)
 {
-    //
+    if(!item) return;
+    deal_dialog->show();
+    QString filePath = item->data(Qt::UserRole).toString();
+    transaction clickedData;
+
+    qDebug()<<filePath;
+
+    if(item->listWidget() == ui->pendingTransaction_listWidget)
+    {
+        auto it = std::find_if(fileVector.begin(), fileVector.end(), [=](transaction d){
+            return d.selectFilePath() == filePath;
+        });
+
+        if (it == fileVector.end())return;
+
+        clickedData = *it;
+        deal_dialog->updateTransaction(clickedData);
+
+
+    }
+    else if(item->listWidget() == ui->finishedTransaction_listWidget)
+    {
+        auto it = std::find_if(finishedFileVector.begin(), finishedFileVector.end(), [=](transaction d){
+            return d.selectFilePath() == filePath;
+        });
+
+        if (it == finishedFileVector.end())return;
+
+        clickedData = *it;
+        deal_dialog->updateTransaction(clickedData);
+    }
+
+    disconnect(deal_dialog, &dealDialog::finished, nullptr, nullptr);
+    connect(deal_dialog, &dealDialog::finished,[=](bool isAccept)
+    {
+        TransactionHandled(clickedData, isAccept);
+        deal_dialog->hide();
+        deal_dialog->disableBtn();
+
+        //refresh widget to show updated file info
+        readLocalTransaction();
+        sortBoxChanged(ui->sort_box->currentText());
+        updateListWidget();
+        updateLabel();
+    });
+
+}
+
+void MainWindow::TransactionHandled(transaction data, bool isAccept)
+{
+    if(isAccept)
+        data.toogleAccept();
+
+    data.setResultTime(QDateTime::currentDateTime());
+    QTcpSocket* socket = findSocketFromUuid(data.getUuid());
+    if(socket == nullptr)
+    {
+        QMessageBox::warning(this,"警告","客户端不存在或已下线");
+        return;
+    }
+    sendMsgToSocket(socket, TRANSACTION_STATUS, data);
+
+    saveTransactionToLocal(data);
+    readLocalTransaction();
+    sortBoxChanged(ui->sort_box->currentText());
+    updateListWidget();
+    updateLabel();
 }
 
 void MainWindow::sortBoxChanged(QString way)
 {
+    ui->sort_box->setCurrentText(way);
+    ui->sort_box_2->setCurrentText(way);
     if(way == "按订单创建时间正序")
     {
         std::sort(fileVector.begin(), fileVector.end(),
+                  [=](transaction &a, transaction &b){return a.selectSubmittedTime() > b.selectSubmittedTime();});
+
+        std::sort(finishedFileVector.begin(), finishedFileVector.end(),
                   [=](transaction &a, transaction &b){return a.selectSubmittedTime() > b.selectSubmittedTime();});
     }
     else if(way == "按订单创建时间倒序")
     {
         std::sort(fileVector.begin(), fileVector.end(),
                   [=](transaction &a, transaction &b){return a.selectSubmittedTime() < b.selectSubmittedTime();});
+
+        std::sort(finishedFileVector.begin(), finishedFileVector.end(),
+                  [=](transaction &a, transaction &b){return a.selectSubmittedTime() < b.selectSubmittedTime();});
     }
     else if(way == "按报价大小正序")
     {
         std::sort(fileVector.begin(), fileVector.end(),
+                  [=](transaction &a, transaction &b){return a.selectPrice() > b.selectPrice();});
+
+        std::sort(finishedFileVector.begin(), finishedFileVector.end(),
                   [=](transaction &a, transaction &b){return a.selectPrice() > b.selectPrice();});
     }
     else if(way == "按报价大小倒序")
     {
         std::sort(fileVector.begin(), fileVector.end(),
                   [=](transaction &a, transaction &b){return a.selectPrice() < b.selectPrice();});
-    }
 
-    updataListWidget();
+        std::sort(finishedFileVector.begin(), finishedFileVector.end(),
+                  [=](transaction &a, transaction &b){return a.selectPrice() < b.selectPrice();});
+    }
 }
 
-void MainWindow::updataListWidget()
+void MainWindow::updateListWidget()
 {
     ui->pendingTransaction_listWidget->clear();
     for(auto data : fileVector)
@@ -86,6 +177,16 @@ void MainWindow::updataListWidget()
                                                     QString::number(data.selectPrice()));
         item->setData(Qt::UserRole, data.selectFilePath());
         ui->pendingTransaction_listWidget->addItem(item);
+    }
+    
+    ui->finishedTransaction_listWidget->clear();
+    for(auto data : finishedFileVector)
+    {
+        QListWidgetItem* item = new QListWidgetItem(data.getId() + "---" +
+                                                    data.selectType() + "---" +
+                                                    QString::number(data.selectPrice()));
+        item->setData(Qt::UserRole, data.selectFilePath());
+        ui->finishedTransaction_listWidget->addItem(item);
     }
 }
 
@@ -102,6 +203,8 @@ void MainWindow::readLocalTransaction()
     QFileInfoList fileList = dir.entryInfoList(QDir::Files | QDir::NoDot | QDir::NoDotDot);
 
     fileVector.clear();
+    finishedFileVector.clear();
+
     for(const QFileInfo &fileInfo : fileList)
     {
         QFile file(fileInfo.absoluteFilePath());
@@ -114,12 +217,13 @@ void MainWindow::readLocalTransaction()
         in.setVersion(QDataStream::Qt_5_14);
         transaction data;
         in >> data;
-        if(!data.checkStatus())
+        if(!data.selectResultTime().isValid())
             fileVector.push_back(data);
+        else
+            finishedFileVector.push_back(data);
 
         file.close();
     }
-    sortBoxChanged(ui->sort_box->currentText());
 }
 
 void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type, transaction data)
@@ -142,53 +246,20 @@ void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type, transaction d
 void MainWindow::updateLabel()
 {
     ui->transactionNumber_label->setText(QString("当前订单数量:%1").arg(fileVector.length()));
+    ui->finishedTransactionNumber_label->setText(QString("当前订单数量:%1").arg(finishedFileVector.length()));
 }
 
-void MainWindow::clientConnected()
+QTcpSocket* MainWindow::findSocketFromUuid(QString uuid)
 {
+    QMap<QTcpSocket*, clientInfo*>::iterator it = clientMap.begin();
 
-}
-
-void MainWindow::clientDisconnected()
-{
-
-}
-
-void MainWindow::onNewConnection()
-{
-    QTcpSocket* socket = server->nextPendingConnection();
-    clientMap.insert(socket, new clientInfo(socket->peerAddress().toString()));
-
-    //disconnect event
-    connect(socket, &QTcpSocket::disconnected, [=](){
-        clientMap.remove(socket);
-        socket->deleteLater();
-    });
-
-    //message event
-    connect(socket, &QTcpSocket::readyRead, [=](){
-        QDataStream in(socket);
-        in.setVersion(QDataStream::Qt_5_14);
-        in.startTransaction();
-
-        transaction data;
-        int msg_type;
-        in >> msg_type >> data;
-        if(!in.commitTransaction())
-            return;
-        if(msg_type == NEW_TRANSACTION)
-        {
-            sendMsgToSocket(socket, NEW_TRANSACTION, data);
-            newTransactionRecived(data);
+    while (it != clientMap.end()) {
+        if (it.value() && it.value()->getUuid() == uuid) {
+            return it.key();
         }
-
-    });
-}
-
-void MainWindow::newTransactionRecived(transaction data)
-{
-    saveTransactionToLocal(data);
-    readLocalTransaction();
+        ++it;
+    }
+    return nullptr;
 }
 
 void MainWindow::saveTransactionToLocal(transaction data)
@@ -205,6 +276,67 @@ void MainWindow::saveTransactionToLocal(transaction data)
     out << data;
     file.close();
 }
+
+//client-server function
+void MainWindow::clientConnected()
+{
+
+}
+
+void MainWindow::clientDisconnected()
+{
+
+}
+
+void MainWindow::onNewConnection()
+{
+    QTcpSocket* socket = server->nextPendingConnection();
+
+    //disconnect event
+    connect(socket, &QTcpSocket::disconnected, [=](){
+        clientMap.remove(socket);
+        socket->deleteLater();
+    });
+
+    //message event
+    connect(socket, &QTcpSocket::readyRead, [=](){
+        QDataStream in(socket);
+        in.setVersion(QDataStream::Qt_5_14);
+        in.startTransaction();
+
+        transaction data;
+        int msg_type;
+        in >> msg_type;
+
+        if(msg_type == HANDSHAKE)
+        {
+            QString uuid;
+            in >> uuid;
+            qDebug()<<uuid;
+            clientMap.insert(socket, new clientInfo(uuid));
+        }
+        else if(msg_type == NEW_TRANSACTION)
+        {
+            in >> data;
+            if(!in.commitTransaction())
+                return;
+            sendMsgToSocket(socket, NEW_TRANSACTION, data);
+            newTransactionRecived(data);
+        }
+
+    });
+}
+
+void MainWindow::newTransactionRecived(transaction data)
+{
+    saveTransactionToLocal(data);
+    readLocalTransaction();
+    sortBoxChanged(ui->sort_box->currentText());
+    updateListWidget();
+    updateLabel();
+}
+
+
 
 
 
