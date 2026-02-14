@@ -7,12 +7,14 @@
 #include <QTcpSocket>
 #include<QMessageBox>
 #include<QMap>
+#include<QList>
 #include<QDir>
 #include<QDataStream>
 #include<QDateTime>
 #include<QFile>
 #include<QListWidgetItem>
 #include<QVector>
+#include<QCloseEvent>
 #include"transaction.h"
 #include"clientInfo.h"
 #include"dealDialog.h"
@@ -43,8 +45,11 @@ public:
     void updateLabel();
     void readLocalTransaction();
     void updateListWidget();
-    QTcpSocket* findSocketFromUuid(QString uuid);
+    QTcpSocket* fetchSocketFromUuid(QString uuid);
     void TransactionHandled(transaction data, bool isAccept);
+
+protected:
+    void closeEvent(QCloseEvent *event) override;
 
 public slots:
     void clientConnected();
@@ -52,7 +57,7 @@ public slots:
     void onNewConnection();
     void sortBoxChanged(QString way);
     void selectedItem(QListWidgetItem *item);
-//    void dealDialogFinished(bool isAccept);
+    void onMetalPriceFrame();
 
 private:
     Ui::MainWindow *ui;

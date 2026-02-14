@@ -8,7 +8,48 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     deal_dialog = new dealDialog(this);
     deal_dialog->hide();
-//    connect(deal_dialog, &dealDialog::finished,this,&MainWindow::dealDialogFinished);
+
+
+    server = new QTcpServer(this);
+    init();
+}
+
+MainWindow::~MainWindow()
+{
+    delete ui;
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    server->isListening();
+    QList<QTcpSocket*> sockets = clientMap.keys();
+
+    for (QTcpSocket* socket : sockets) {
+        if (socket && socket->state() == QAbstractSocket::ConnectedState) {
+            socket->disconnectFromHost();
+        }
+    }
+
+    QMessageBox::StandardButton resBtn = QMessageBox::question(this, "确认", "确定要退出程序吗？",
+                                                               QMessageBox::No | QMessageBox::Yes,
+                                                               QMessageBox::Yes);
+    if (resBtn != QMessageBox::Yes) {
+        event->ignore();
+        return;
+    }
+
+    event->accept();
+}
+
+void MainWindow::init()
+{
+    if (!server->listen(QHostAddress::Any, 8888)) {
+        ui->msgFromClients_listWidget->addItem("启动服务器失败！");
+    } else {
+        ui->msgFromClients_listWidget->addItem("启动服务器成功！");
+    }
+
+    connect(server, &QTcpServer::newConnection, this, &MainWindow::onNewConnection);
 
     ui->sort_box->addItem("按订单创建时间正序");
     ui->sort_box->addItem("按订单创建时间倒序");
@@ -19,32 +60,12 @@ MainWindow::MainWindow(QWidget *parent)
     ui->sort_box_2->addItem("按订单创建时间倒序");
     ui->sort_box_2->addItem("按报价大小正序");
     ui->sort_box_2->addItem("按报价大小倒序");
-//    ui->transaction_tap->set
 
     connect(ui->sort_box, &QComboBox::currentTextChanged, this, &MainWindow::sortBoxChanged);
     connect(ui->sort_box_2, &QComboBox::currentTextChanged, this, &MainWindow::sortBoxChanged);
     connect(ui->pendingTransaction_listWidget, &QListWidget::itemDoubleClicked, this, &MainWindow::selectedItem);
     connect(ui->finishedTransaction_listWidget, &QListWidget::itemDoubleClicked, this, &MainWindow::selectedItem);
-
-    server = new QTcpServer(this);
-//    connect(server,)
-    init();
-}
-
-MainWindow::~MainWindow()
-{
-    delete ui;
-}
-
-void MainWindow::init()
-{
-    if (!server->listen(QHostAddress::Any, 8888)) {
-        QMessageBox::critical(this, "错误", QString("启动服务器失败！" + server->errorString()));
-    } else {
-        QMessageBox::information(this, "成功", "启动服务器成功！");
-    }
-
-    connect(server, &QTcpServer::newConnection, this, &MainWindow::onNewConnection);
+    connect(ui->metalPrice_frame, &interactableFrame::clicked, this, &MainWindow::onMetalPriceFrame);
 
     //check transaction directory
     QDir dir;
@@ -56,6 +77,12 @@ void MainWindow::init()
     sortBoxChanged(ui->sort_box->currentText());
     updateListWidget();
     updateLabel();
+
+    QList<QLabel *> allLabels = this->findChildren<QLabel *>();
+
+    for (QLabel *label : allLabels) {
+        label->setAttribute(Qt::WA_TransparentForMouseEvents);
+    }
 }
 
 void MainWindow::selectedItem(QListWidgetItem *item)
@@ -114,10 +141,10 @@ void MainWindow::TransactionHandled(transaction data, bool isAccept)
         data.toogleAccept();
 
     data.setResultTime(QDateTime::currentDateTime());
-    QTcpSocket* socket = findSocketFromUuid(data.getUuid());
+    QTcpSocket* socket = fetchSocketFromUuid(data.getUuid());
     if(socket == nullptr)
     {
-        QMessageBox::warning(this,"警告","客户端不存在或已下线");
+        ui->msgFromClients_listWidget->addItem("发送结果失败，客户端不存在或已下线");
         return;
     }
     sendMsgToSocket(socket, TRANSACTION_STATUS, data);
@@ -249,7 +276,7 @@ void MainWindow::updateLabel()
     ui->finishedTransactionNumber_label->setText(QString("当前订单数量:%1").arg(finishedFileVector.length()));
 }
 
-QTcpSocket* MainWindow::findSocketFromUuid(QString uuid)
+QTcpSocket* MainWindow::fetchSocketFromUuid(QString uuid)
 {
     QMap<QTcpSocket*, clientInfo*>::iterator it = clientMap.begin();
 
@@ -275,6 +302,11 @@ void MainWindow::saveTransactionToLocal(transaction data)
     out.setVersion(QDataStream::Qt_5_14);
     out << data;
     file.close();
+}
+
+void MainWindow::onMetalPriceFrame()
+{
+
 }
 
 //client-server function
@@ -314,6 +346,8 @@ void MainWindow::onNewConnection()
             in >> uuid;
             qDebug()<<uuid;
             clientMap.insert(socket, new clientInfo(uuid));
+
+            ui->msgFromClients_listWidget->addItem(QString(uuid + "已连接"));
         }
         else if(msg_type == NEW_TRANSACTION)
         {
@@ -322,6 +356,9 @@ void MainWindow::onNewConnection()
                 return;
             sendMsgToSocket(socket, NEW_TRANSACTION, data);
             newTransactionRecived(data);
+
+            ui->msgFromClients_listWidget->addItem
+                    (QString(clientMap.value(socket)->getUuid() + "发送了一份订单"+ data.getId()));
         }
 
     });

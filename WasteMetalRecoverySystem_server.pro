@@ -18,6 +18,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
     clientInfo.cpp \
     dealDialog.cpp \
+    interactableFrame.cpp \
     main.cpp \
     mainwindow.cpp \
     transaction.cpp
@@ -25,6 +26,7 @@ SOURCES += \
 HEADERS += \
     clientInfo.h \
     dealDialog.h \
+    interactableFrame.h \
     mainwindow.h \
     transaction.h
 
