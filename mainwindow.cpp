@@ -6,49 +6,12 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    deal_dialog = new dealDialog(this);
-    deal_dialog->hide();
-
-
     server = new QTcpServer(this);
-    init();
-}
-
-MainWindow::~MainWindow()
-{
-    delete ui;
-}
-
-void MainWindow::closeEvent(QCloseEvent *event)
-{
-    server->isListening();
-    QList<QTcpSocket*> sockets = clientMap.keys();
-
-    for (QTcpSocket* socket : sockets) {
-        if (socket && socket->state() == QAbstractSocket::ConnectedState) {
-            socket->disconnectFromHost();
-        }
-    }
-
-    QMessageBox::StandardButton resBtn = QMessageBox::question(this, "确认", "确定要退出程序吗？",
-                                                               QMessageBox::No | QMessageBox::Yes,
-                                                               QMessageBox::Yes);
-    if (resBtn != QMessageBox::Yes) {
-        event->ignore();
-        return;
-    }
-
-    event->accept();
-}
-
-void MainWindow::init()
-{
     if (!server->listen(QHostAddress::Any, 8888)) {
         ui->msgFromClients_listWidget->addItem("启动服务器失败！");
     } else {
         ui->msgFromClients_listWidget->addItem("启动服务器成功！");
     }
-
     connect(server, &QTcpServer::newConnection, this, &MainWindow::onNewConnection);
 
     ui->sort_box->addItem("按订单创建时间正序");
@@ -67,6 +30,45 @@ void MainWindow::init()
     connect(ui->finishedTransaction_listWidget, &QListWidget::itemDoubleClicked, this, &MainWindow::selectedItem);
     connect(ui->metalPrice_frame, &interactableFrame::clicked, this, &MainWindow::onMetalPriceFrame);
 
+    deal_dialog = new dealDialog(this);
+    deal_dialog->hide();
+
+    metalPrice_dialog = new metalPriceDialog(this);
+    metalPrice_dialog->hide();
+    connect(metalPrice_dialog, &metalPriceDialog::update, this, &MainWindow::updateMetalPrice);
+
+    init();
+}
+
+MainWindow::~MainWindow()
+{
+    delete ui;
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    QMessageBox::StandardButton resBtn = QMessageBox::question(this, "确认", "确定要退出程序吗？",
+                                                               QMessageBox::No | QMessageBox::Yes,
+                                                               QMessageBox::Yes);
+    if (resBtn != QMessageBox::Yes) {
+        event->ignore();
+        return;
+    }
+
+    server->isListening();
+    QList<QTcpSocket*> sockets = clientMap.keys();
+
+    for (QTcpSocket* socket : sockets) {
+        if (socket && socket->state() == QAbstractSocket::ConnectedState) {
+            socket->disconnectFromHost();
+        }
+    }
+
+    event->accept();
+}
+
+void MainWindow::init()
+{
     //check transaction directory
     QDir dir;
     if(!dir.exists("bin/transactions"))
@@ -91,8 +93,6 @@ void MainWindow::selectedItem(QListWidgetItem *item)
     deal_dialog->show();
     QString filePath = item->data(Qt::UserRole).toString();
     transaction clickedData;
-
-    qDebug()<<filePath;
 
     if(item->listWidget() == ui->pendingTransaction_listWidget)
     {
@@ -237,7 +237,7 @@ void MainWindow::readLocalTransaction()
         QFile file(fileInfo.absoluteFilePath());
         if(!file.open(QIODevice::ReadOnly))
         {
-            QMessageBox::critical(this,"错误","文件无法读取!");
+            ui->msgFromClients_listWidget->addItem("本地订单无法读取!");
             return;
         }
         QDataStream in(&file);
@@ -267,7 +267,26 @@ void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type, transaction d
             out<<data;
         }
 
-        socket->write(block);
+        if(socket->write(block) == -1)
+            socket->abort();
+}
+
+void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type, metalPrice data)
+{
+    if (!socket || socket->state() != QAbstractSocket::ConnectedState) return;
+
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(QDataStream::Qt_5_14);
+
+        out<<msg_type;
+        if(msg_type == METAL_PRICE)
+        {
+            out<<data;
+        }
+
+        if(socket->write(block) == -1)
+            socket->abort();
 }
 
 void MainWindow::updateLabel()
@@ -306,7 +325,54 @@ void MainWindow::saveTransactionToLocal(transaction data)
 
 void MainWindow::onMetalPriceFrame()
 {
+    metalPrice_dialog->show();
+}
 
+void MainWindow::updateMetalPrice(metalPrice data)
+{
+    saveMetalPriceToLocal(data);
+
+    QMap<QTcpSocket*, clientInfo*>::iterator it;
+
+    for (it = clientMap.begin(); it != clientMap.end(); ++it) {
+        QTcpSocket *socket = it.key();
+        sendMsgToSocket(socket,METAL_PRICE, data);
+    }
+
+    ui->msgFromClients_listWidget->addItem("已向所有客户端发送最新金属价格");
+    metalPrice_dialog->hide();
+}
+
+metalPrice MainWindow::readMetalPriceFromLocal()
+{
+    metalPrice data;
+
+    QFile file("bin/metalPrice_CNY.dat");
+    if(!file.open(QIODevice::ReadOnly))
+    {
+        ui->msgFromClients_listWidget->addItem("无法读取本地金属价格信息!");
+        return data;
+    }
+
+    QDataStream in(&file);
+    in.setVersion(QDataStream::Qt_5_14);
+    in >> data;
+    return data;
+}
+
+void MainWindow::saveMetalPriceToLocal(metalPrice data)
+{
+
+    QFile file("bin/metalPrice_CNY.dat");
+    if(!file.open(QIODevice::WriteOnly))
+    {
+        ui->msgFromClients_listWidget->addItem("无法保存本地金属价格信息!");
+        return;
+    }
+    QDataStream out(&file);
+    out.setVersion(QDataStream::Qt_5_14);
+    out << data;
+    qDebug()<<"保存的金属价格updated:"<<data.isUpdated;
 }
 
 //client-server function
@@ -326,8 +392,16 @@ void MainWindow::onNewConnection()
 
     //disconnect event
     connect(socket, &QTcpSocket::disconnected, [=](){
-        clientMap.remove(socket);
-        socket->deleteLater();
+        if (clientMap.contains(socket)) {
+                clientInfo* info = clientMap.value(socket);
+                QString uuid = info->getUuid();
+
+                ui->msgFromClients_listWidget->addItem(uuid + " 断开连接");
+
+                clientMap.remove(socket);
+                delete info;
+            }
+            socket->deleteLater();
     });
 
     //message event
@@ -344,10 +418,19 @@ void MainWindow::onNewConnection()
         {
             QString uuid;
             in >> uuid;
-            qDebug()<<uuid;
+            if(!in.commitTransaction())
+            {
+                ui->msgFromClients_listWidget->addItem("客户端消息接收失败！");
+                return ;
+            }
             clientMap.insert(socket, new clientInfo(uuid));
 
             ui->msgFromClients_listWidget->addItem(QString(uuid + "已连接"));
+
+            //convey metalPrice
+            metalPrice data = readMetalPriceFromLocal();
+            if(data.isUpdated)
+                sendMsgToSocket(socket,METAL_PRICE,data);
         }
         else if(msg_type == NEW_TRANSACTION)
         {
@@ -357,8 +440,7 @@ void MainWindow::onNewConnection()
             sendMsgToSocket(socket, NEW_TRANSACTION, data);
             newTransactionRecived(data);
 
-            ui->msgFromClients_listWidget->addItem
-                    (QString(clientMap.value(socket)->getUuid() + "发送了一份订单"+ data.getId()));
+            ui->msgFromClients_listWidget->addItem(QString("收到了一份订单"+ data.getId()));
         }
 
     });

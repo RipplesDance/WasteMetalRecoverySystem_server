@@ -18,6 +18,8 @@
 #include"transaction.h"
 #include"clientInfo.h"
 #include"dealDialog.h"
+#include"metalPrice.h"
+#include"metalPriceDialog.h"
 
 enum {
     HANDSHAKE = 0,
@@ -42,11 +44,14 @@ public:
     void newTransactionRecived(transaction data);
     void saveTransactionToLocal(transaction data);
     void sendMsgToSocket(QTcpSocket* socket, int msg_type, transaction data);
+    void sendMsgToSocket(QTcpSocket* socket, int msg_type, metalPrice data);
     void updateLabel();
     void readLocalTransaction();
     void updateListWidget();
     QTcpSocket* fetchSocketFromUuid(QString uuid);
     void TransactionHandled(transaction data, bool isAccept);
+    metalPrice readMetalPriceFromLocal();
+    void saveMetalPriceToLocal(metalPrice data);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -58,6 +63,7 @@ public slots:
     void sortBoxChanged(QString way);
     void selectedItem(QListWidgetItem *item);
     void onMetalPriceFrame();
+    void updateMetalPrice(metalPrice data);
 
 private:
     Ui::MainWindow *ui;
@@ -67,6 +73,7 @@ private:
     QVector<transaction> finishedFileVector;
 
     dealDialog* deal_dialog;
+    metalPriceDialog* metalPrice_dialog;
 
 };
 #endif // MAINWINDOW_H
