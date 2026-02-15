@@ -19,6 +19,11 @@ public:
     void updateClientNumber(int n);
     void clearTreeWidget();
 
+
+    int sequence;
+
+signals:
+    void heartBeat();
 private:
     Ui::onlineClientsDialog *ui;
 };

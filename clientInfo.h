@@ -3,9 +3,13 @@
 
 #include<QDebug>
 #include<QDateTime>
+#include<QTimer>
+#include<QObject>
 
-class clientInfo
+class clientInfo : QObject
 {
+    Q_OBJECT
+
 public:
     clientInfo(QString uuid);
     ~clientInfo();
@@ -15,6 +19,14 @@ public:
     QDateTime selectLoginTime();
     QString getIp();
     QString getUuid();
+    void testHeartBeat();
+    void heartBeat();
+
+    int heartBeatCount;
+    QTimer* heartBeatTimer;
+
+signals:
+    void zombie();
 
 private:
     QDateTime loginTime;

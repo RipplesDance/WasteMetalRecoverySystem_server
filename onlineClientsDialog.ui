@@ -6,13 +6,13 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1300</width>
+    <width>1500</width>
     <height>900</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>1300</width>
+    <width>1500</width>
     <height>900</height>
    </size>
   </property>
@@ -59,17 +59,22 @@
      </property>
      <column>
       <property name="text">
+       <string>序号</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
        <string>IP</string>
       </property>
      </column>
      <column>
       <property name="text">
-       <string>uuid</string>
+       <string>登录时间</string>
       </property>
      </column>
      <column>
       <property name="text">
-       <string>登录时间</string>
+       <string>uuid</string>
       </property>
      </column>
     </widget>

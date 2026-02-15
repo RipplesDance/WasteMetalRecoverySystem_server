@@ -34,6 +34,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     onlineClients_dialog = new onlineClientsDialog(this);
     onlineClients_dialog->hide();
+    connect(onlineClients_dialog,&onlineClientsDialog::heartBeat,this,&MainWindow::heartBeatDetection);
 
     init();
 }
@@ -323,6 +324,18 @@ void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type, metalPrice da
             socket->abort();
 }
 
+void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type)
+{
+    QByteArray block;
+    QDataStream out(&block, QIODevice::WriteOnly);
+    out.setVersion(QDataStream::Qt_5_14);
+
+    out<<msg_type;
+
+    if(socket->write(block) == -1)
+        socket->abort();
+}
+
 void MainWindow::updateLabel()
 {
     ui->transactionNumber_label->setText(QString("当前订单数量:%1").arg(fileVector.length()));
@@ -375,6 +388,25 @@ void MainWindow::onOnlineClientsFrame()
         onlineClients_dialog->addClient(*info);
     }
 
+}
+
+void MainWindow::heartBeatDetection()
+{
+    QMap<QTcpSocket*, clientInfo*>::iterator it = clientMap.begin();
+        while (it != clientMap.end()) {
+            QTcpSocket* socket = it.key();
+            clientInfo* info = it.value();
+            sendMsgToSocket(socket,HEART_BEAT);
+            info->testHeartBeat();
+        }
+}
+
+void MainWindow::removeZombie(clientInfo data)
+{
+    QTcpSocket* socket = fetchSocketFromUuid(data.getUuid());
+    if(!socket)
+        return;
+    socket->abort();
 }
 
 void MainWindow::updateMetalPrice(metalPrice data)
@@ -459,63 +491,7 @@ void MainWindow::onNewConnection()
     });
 
     //message event
-    connect(socket, &QTcpSocket::readyRead, [=](){
-        QDataStream in(socket);
-        in.setVersion(QDataStream::Qt_5_14);
-        in.startTransaction();
-
-        transaction data;
-        int msg_type;
-        in >> msg_type;
-
-        if(msg_type == HANDSHAKE)
-        {
-            QString uuid;
-            in >> uuid;
-            if(!in.commitTransaction())
-            {
-                addMsgToMsgServer("客户端消息接收失败！");
-                return ;
-            }
-            clientInfo* client = new clientInfo(uuid);
-
-            //IPv6 to IPv4
-            QHostAddress hostAddr = socket->peerAddress();
-            QString ipString;
-            if (hostAddr.protocol() == QAbstractSocket::IPv4Protocol)
-                ipString = hostAddr.toString();
-            else
-            {
-                bool success;
-                uint ipv4 = hostAddr.toIPv4Address(&success);
-                if (success)
-                    ipString = QHostAddress(ipv4).toString();
-                else
-                    ipString = hostAddr.toString();
-            }
-
-            client->setIp(ipString);
-            clientMap.insert(socket, client);
-
-            addMsgToMsgServer(QString(uuid + "已连接"));
-
-            //convey metalPrice
-            metalPrice data = readMetalPriceFromLocal();
-            if(data.isUpdated)
-                sendMsgToSocket(socket,METAL_PRICE,data);
-        }
-        else if(msg_type == NEW_TRANSACTION)
-        {
-            in >> data;
-            if(!in.commitTransaction())
-                return;
-            sendMsgToSocket(socket, NEW_TRANSACTION, data);
-            newTransactionRecived(data);
-
-            addMsgToMsgServer(QString("收到了一份订单"+ data.getId()));
-        }
-
-    });
+    connect(socket, &QTcpSocket::readyRead, [=](){messageFromClient(socket);});
 }
 
 void MainWindow::newTransactionRecived(transaction data)
@@ -527,7 +503,71 @@ void MainWindow::newTransactionRecived(transaction data)
     updateLabel();
 }
 
+void MainWindow::messageFromClient(QTcpSocket* socket)
+{
+    QDataStream in(socket);
+    in.setVersion(QDataStream::Qt_5_14);
+    in.startTransaction();
 
+    transaction data;
+    int msg_type;
+    in >> msg_type;
+
+    if(msg_type == HANDSHAKE)
+    {
+        QString uuid;
+        in >> uuid;
+        if(!in.commitTransaction())
+        {
+            addMsgToMsgServer("客户端消息接收失败！");
+            return ;
+        }
+        clientInfo* client = new clientInfo(uuid);
+        connect(client, &clientInfo::zombie,this, [=](){
+            removeZombie(*client);
+        });
+
+        //IPv6 to IPv4
+        QHostAddress hostAddr = socket->peerAddress();
+        QString ipString;
+        if (hostAddr.protocol() == QAbstractSocket::IPv4Protocol)
+            ipString = hostAddr.toString();
+        else
+        {
+            bool success;
+            uint ipv4 = hostAddr.toIPv4Address(&success);
+            if (success)
+                ipString = QHostAddress(ipv4).toString();
+            else
+                ipString = hostAddr.toString();
+        }
+
+        client->setIp(ipString);
+        clientMap.insert(socket, client);
+
+        addMsgToMsgServer(QString(uuid + "已连接"));
+
+        //convey metalPrice
+        metalPrice data = readMetalPriceFromLocal();
+        if(data.isUpdated)
+            sendMsgToSocket(socket,METAL_PRICE,data);
+    }
+    else if(msg_type == NEW_TRANSACTION)
+    {
+        in >> data;
+        if(!in.commitTransaction())
+            return;
+        sendMsgToSocket(socket, NEW_TRANSACTION, data);
+        newTransactionRecived(data);
+
+        addMsgToMsgServer(QString("收到了一份订单"+ data.getId()));
+    }
+    else if(msg_type == HEART_BEAT)
+    {
+        clientInfo* client = clientMap.value(socket);
+        client->heartBeat();
+    }
+}
 
 
 
