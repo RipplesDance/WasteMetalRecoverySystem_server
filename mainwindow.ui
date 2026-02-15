@@ -254,13 +254,13 @@
        <widget class="QListWidget" name="msgFromClients_listWidget">
         <property name="font">
          <font>
-          <pointsize>12</pointsize>
+          <pointsize>9</pointsize>
          </font>
         </property>
        </widget>
       </item>
       <item row="3" column="0">
-       <widget class="interactableFrame" name="clientInfo_frame">
+       <widget class="interactableFrame" name="onlineClients_frame">
         <property name="frameShape">
          <enum>QFrame::StyledPanel</enum>
         </property>
@@ -333,7 +333,7 @@
   <customwidget>
    <class>interactableFrame</class>
    <extends>QFrame</extends>
-   <header location="global">interactableFrame.h</header>
+   <header location="global">interactableframe.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>
