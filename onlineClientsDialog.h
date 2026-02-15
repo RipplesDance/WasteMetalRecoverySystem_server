@@ -15,7 +15,7 @@ class onlineClientsDialog : public QDialog
 public:
     explicit onlineClientsDialog(QWidget *parent = nullptr);
     ~onlineClientsDialog();
-    void addClient(clientInfo data);
+    void addClient(clientInfo* data);
     void updateClientNumber(int n);
     void clearTreeWidget();
 

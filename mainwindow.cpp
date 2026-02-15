@@ -17,6 +17,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->sort_box_2->addItem("按报价大小正序");
     ui->sort_box_2->addItem("按报价大小倒序");
 
+    //ui connection
     connect(ui->sort_box, &QComboBox::currentTextChanged, this, &MainWindow::sortBoxChanged);
     connect(ui->sort_box_2, &QComboBox::currentTextChanged, this, &MainWindow::sortBoxChanged);
     connect(ui->pendingTransaction_listWidget, &QListWidget::itemDoubleClicked, this, &MainWindow::selectedItem);
@@ -25,6 +26,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->metalPrice_frame, &interactableFrame::clicked, this, &MainWindow::onMetalPriceFrame);
     connect(ui->onlineClients_frame, &interactableFrame::clicked, this, &MainWindow::onOnlineClientsFrame);
 
+    //dialog init
     deal_dialog = new dealDialog(this);
     deal_dialog->hide();
 
@@ -37,6 +39,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(onlineClients_dialog,&onlineClientsDialog::heartBeat,this,&MainWindow::heartBeatDetection);
 
     init();
+    //load quotation model
+    readQuotationModel();
 }
 
 MainWindow::~MainWindow()
@@ -81,6 +85,10 @@ void MainWindow::init()
         if (dir.mkpath("bin/logs")) {
             qDebug() << "Dir created";
         }
+
+    //check quotation model directory
+    if (!dir.exists("bin/quotation_model")) dir.mkpath("bin/quotation_model");
+
     readLocalTransaction();
     sortBoxChanged(ui->sort_box->currentText());
     updateTransactionListWidget();
@@ -385,7 +393,7 @@ void MainWindow::onOnlineClientsFrame()
 
     for (it = clientMap.begin(); it != clientMap.end(); ++it) {
         clientInfo *info = it.value();
-        onlineClients_dialog->addClient(*info);
+        onlineClients_dialog->addClient(info);
     }
 
 }
@@ -398,15 +406,26 @@ void MainWindow::heartBeatDetection()
             clientInfo* info = it.value();
             sendMsgToSocket(socket,HEART_BEAT);
             info->testHeartBeat();
+            it++;
         }
 }
 
-void MainWindow::removeZombie(clientInfo data)
+void MainWindow::removeZombie(clientInfo* data)
 {
-    QTcpSocket* socket = fetchSocketFromUuid(data.getUuid());
+    QTcpSocket* socket = fetchSocketFromUuid(data->getUuid());
     if(!socket)
         return;
     socket->abort();
+
+    onlineClients_dialog->updateClientNumber(clientMap.count());
+    onlineClients_dialog->clearTreeWidget();
+
+    QMap<QTcpSocket*, clientInfo*>::iterator it;
+
+    for (it = clientMap.begin(); it != clientMap.end(); ++it) {
+        clientInfo *info = it.value();
+        onlineClients_dialog->addClient(info);
+    }
 }
 
 void MainWindow::updateMetalPrice(metalPrice data)
@@ -459,6 +478,37 @@ QString MainWindow::getCurrentDateTime()
 {
     QDateTime time = QDateTime::currentDateTime();
     return time.toString("yyyy-MM-dd hh-mm");
+}
+
+void MainWindow::saveQuotationToLocal()
+{
+    QFile file("bin/quotation_model/quotation.dat");
+    if(!file.open(QIODevice::WriteOnly))
+    {
+        addMsgToMsgServer("无法保存核心报价模块!");
+        return;
+    }
+    QDataStream out(&file);
+    out.setVersion(QDataStream::Qt_5_14);
+    out << quo;
+
+    quo.saveBatteryMaterialConcentrationToLocal();
+
+    file.close();
+}
+
+void MainWindow::readQuotationModel()
+{
+    QFile file("bin/quotation_model/quotation.dat");
+    if(!file.open(QIODevice::ReadOnly))
+    {
+        addMsgToMsgServer("无法读取核心报价模块!");
+        return;
+    }
+    QDataStream in(&file);
+    in.setVersion(QDataStream::Qt_5_14);
+    in >> quo;
+    file.close();
 }
 
 //client-server function
@@ -524,7 +574,7 @@ void MainWindow::messageFromClient(QTcpSocket* socket)
         }
         clientInfo* client = new clientInfo(uuid);
         connect(client, &clientInfo::zombie,this, [=](){
-            removeZombie(*client);
+            removeZombie(client);
         });
 
         //IPv6 to IPv4
@@ -568,15 +618,4 @@ void MainWindow::messageFromClient(QTcpSocket* socket)
         client->heartBeat();
     }
 }
-
-
-
-
-
-
-
-
-
-
-
 

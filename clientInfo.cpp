@@ -24,14 +24,12 @@ void clientInfo::setIp(QString ip)
 
 void clientInfo::heartBeat()
 {
-    qDebug()<<"客户端存活";
     heartBeatTimer->stop();
 }
 
 void clientInfo::testHeartBeat()
 {
-    qDebug()<<"测试客户端心跳";
-    heartBeatTimer->start(1000 * 15);
+    heartBeatTimer->start(1000 * 15); //15 sec
 }
 
 QDateTime clientInfo::selectLoginTime(){return loginTime;}

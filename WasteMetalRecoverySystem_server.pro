@@ -16,6 +16,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    batteryMaterialConcentration.cpp \
     clientInfo.cpp \
     dealDialog.cpp \
     interactableFrame.cpp \
@@ -24,9 +25,11 @@ SOURCES += \
     metalPrice.cpp \
     metalPriceDialog.cpp \
     onlineClientsDialog.cpp \
+    quotation.cpp \
     transaction.cpp
 
 HEADERS += \
+    batteryMaterialConcentration.h \
     clientInfo.h \
     dealDialog.h \
     interactableFrame.h \
@@ -34,6 +37,7 @@ HEADERS += \
     metalPrice.h \
     metalPriceDialog.h \
     onlineClientsDialog.h \
+    quotation.h \
     transaction.h
 
 FORMS += \

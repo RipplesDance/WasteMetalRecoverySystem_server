@@ -6,7 +6,7 @@
 #include<QTimer>
 #include<QObject>
 
-class clientInfo : QObject
+class clientInfo : public QObject
 {
     Q_OBJECT
 

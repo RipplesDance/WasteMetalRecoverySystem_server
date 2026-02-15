@@ -15,14 +15,14 @@ onlineClientsDialog::~onlineClientsDialog()
     delete ui;
 }
 
-void onlineClientsDialog::addClient(clientInfo data)
+void onlineClientsDialog::addClient(clientInfo* data)
 {
     QTreeWidgetItem* item = new QTreeWidgetItem(ui->clientsInfo_treeWidget);
 
     item->setText(0,QString::number(++sequence));
-    item->setText(1,data.getIp());
-    item->setText(2,data.selectLoginTime().toString("yyyy-MM-dd hh:mm:ss"));
-    item->setText(3,data.getUuid());
+    item->setText(1,data->getIp());
+    item->setText(2,data->selectLoginTime().toString("yyyy-MM-dd hh:mm:ss"));
+    item->setText(3,data->getUuid());
 }
 
 void onlineClientsDialog::updateClientNumber(int n)

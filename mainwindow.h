@@ -21,13 +21,14 @@
 #include"metalPrice.h"
 #include"metalPriceDialog.h"
 #include"onlineClientsDialog.h"
+#include"quotation.h"
 
 enum {
     HANDSHAKE = 0,
     NEW_TRANSACTION = 1,
     TRANSACTION_STATUS = 2,
     METAL_PRICE = 3,
-    QUOTATION_CHANGE = 4,
+    QUOTATION_DATA = 4,
     HEART_BEAT = 5
 };
 
@@ -59,6 +60,9 @@ public:
     void addMsgToMsgServer(QString str);
     void writeLog(QString msg);
     void messageFromClient(QTcpSocket* socket);
+    void removeZombie(clientInfo* data);
+    void saveQuotationToLocal();
+    void readQuotationModel();
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -73,7 +77,7 @@ public slots:
     void onOnlineClientsFrame();
     void updateMetalPrice(metalPrice data);
     void heartBeatDetection();
-    void removeZombie(clientInfo data);
+
 
 private:
     Ui::MainWindow *ui;
@@ -88,6 +92,8 @@ private:
 
     QString logFilePath;
     QFile logFile;
+
+    quotation quo;
 
 };
 #endif // MAINWINDOW_H
