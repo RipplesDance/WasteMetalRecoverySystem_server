@@ -18,7 +18,7 @@ public:
     void addClient(clientInfo* data);
     void updateClientNumber(int n);
     void clearTreeWidget();
-
+    void init();
 
     int sequence;
 

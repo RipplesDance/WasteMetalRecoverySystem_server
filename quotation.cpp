@@ -5,11 +5,11 @@ quotation::quotation()
     init();
 
     batteryMaterialConcentration* LCO = new batteryMaterialConcentration(0.071,0.602,0,0,0.1, 0.93, 0.35);
-    LCO->setRecycleRatio(0.85, 0.95,0,0,0.98,0.95);
+    LCO->setRecycleRatio(0.85, 0.95,0,0,0.98,0.95,0.95);
     batteryMap.insert("钴酸锂电池", LCO);
 
-    setProperty(0.3, 0.35,45,0.2);
-    readLocalBatteryMaterialConcentration();
+    setProperty(0.8, 0.3, 0.35,45,0.2);
+    readAllBatteryFromLocal();
 }
 
 quotation:: ~quotation()
@@ -23,11 +23,89 @@ void quotation::init()
    Ni_to_NiSo4 = 262.87/ 58.69; // 6H₂O  NiSO₄·6H₂O = 262.87, Ni = 58.69
    Co_to_CoSo4 = 281.10/ 58.93; // 7H₂O  CoSO₄·7H₂O = 281.10, Co = 58.93
    Mn_to_MnSo4 = 169.02/ 54.94;// 1H₂O MnSO₄·H₂O = 169.02, Mn = 54.94
-
-   transitionRatio = 0.8;
 }
 
-void quotation::saveBatteryMaterialConcentrationToLocal()
+void quotation::batteryChangedHandler(QString key, batteryMaterialConcentration* value)
+{
+    if (key == "新电池材料" || value == nullptr) return;
+
+    if (!batteryMap.contains(key)) {
+        // exist
+        batteryMaterialConcentration *oldData = batteryMap.take(key);
+        if(oldData != value)
+            delete oldData;
+    }
+
+    batteryMap.insert(key,value);
+}
+
+void quotation::removeBatteryByName(QString key)
+{
+    if (batteryMap.contains(key)) {
+        delete batteryMap.take(key); //delete original value
+        batteryMap.remove(key);
+    }
+}
+
+QList<QString> quotation::readAllBatteryType()
+{
+    return batteryMap.keys();
+}
+
+ QList<batteryMaterialConcentration*> quotation::readAllBatteryMaterialConcentration()
+ {
+     return batteryMap.values();
+ }
+
+ void quotation::saveBatteryToLocal(QString key, batteryMaterialConcentration* data)
+ {
+     QString fileName =key.toUtf8().toBase64();
+
+     QFile file("bin/quotation_model/" + fileName + ".dat");
+     if(!file.open(QIODevice::WriteOnly))
+     {
+         qDebug()<<"无法打开文件"+fileName;
+         return;
+     }
+     QDataStream out(&file);
+     out.setVersion(QDataStream::Qt_5_14);
+     out<<*(data);
+ }
+
+ bool quotation::removeBatteryFromLocal(QString key)
+ {
+     QString fileName =key.toUtf8().toBase64();
+
+     QString filePath = "bin/quotation_model/" + fileName + ".dat";
+     QFile file(filePath);
+     if(QFile::exists(filePath))
+     {
+         qDebug()<<"文件不存在";
+         return false;
+     }
+     if (file.remove())
+         return true;
+     else
+         return false;
+ }
+
+void quotation::addBatteryType(QString key, batteryMaterialConcentration* data)
+{
+    batteryMap.insert(key, data);
+    QString fileName =key.toUtf8().toBase64();
+
+    QFile file("bin/quotation_model/" + fileName + ".dat");
+    if(!file.open(QIODevice::WriteOnly))
+    {
+        qDebug()<<"无法打开文件"+fileName;
+        return;
+    }
+    QDataStream out(&file);
+    out.setVersion(QDataStream::Qt_5_14);
+    out<<*(data);
+}
+
+void quotation::saveAllBatteryToLocal()
 {
     QDir dir;
         if (!dir.exists("bin/quotation_model")) dir.mkdir("bin/quotation_model");
@@ -51,7 +129,7 @@ void quotation::saveBatteryMaterialConcentrationToLocal()
     }
 }
 
-void quotation::readLocalBatteryMaterialConcentration()
+void quotation::readAllBatteryFromLocal()
 {
     qDeleteAll(batteryMap);
     batteryMap.clear();
@@ -86,13 +164,14 @@ void quotation::readLocalBatteryMaterialConcentration()
         }
 }
 
-void quotation::setProperty(double unitPrice_80, double unitPrice_90,double price_per_kilo, double profit)
+void quotation::setProperty(double transitionRatio,double unitPrice_80, double unitPrice_90,double price_per_kilo, double profit)
 {
     this->unitPrice_80 = unitPrice_80;
     this->unitPrice_90 = unitPrice_90;
 
     this->price_per_kilo = price_per_kilo;
     this->profit = profit;
+    this->transitionRatio = transitionRatio;
 }
 
 double quotation::quotationCaculator(QString type, double energyDensity, double weight, double SOH,
@@ -116,7 +195,7 @@ double quotation::quotationCaculator(QString type, double energyDensity, double 
     }
 
     double positiveMaterial = weight * battery->positiveMaterialsRatio * battery->positiveMaterial_recycleRatio;
-    double positiveMaterialCompound = positiveMaterial * battery->compoundRatio;
+    double positiveMaterialCompound = positiveMaterial * battery->compoundRatio * battery->compound_recycleRatio;
 
     //metal amount
     double li_amount =  positiveMaterialCompound * battery->li * battery->li_recycleRatio;

@@ -25,19 +25,7 @@
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout" columnstretch="3,1">
-   <item row="0" column="0">
-    <widget class="QLabel" name="clientsNumber_label">
-     <property name="font">
-      <font>
-       <pointsize>16</pointsize>
-      </font>
-     </property>
-     <property name="text">
-      <string>当前在线人数：0</string>
-     </property>
-    </widget>
-   </item>
+  <layout class="QGridLayout" name="gridLayout" columnstretch="3,0">
    <item row="0" column="1">
     <widget class="QPushButton" name="heartBeat_btn">
      <property name="font">
@@ -50,31 +38,67 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="0" colspan="2">
-    <widget class="QTreeWidget" name="clientsInfo_treeWidget">
+   <item row="0" column="0">
+    <widget class="QLabel" name="clientsNumber_label">
      <property name="font">
       <font>
        <pointsize>16</pointsize>
       </font>
      </property>
+     <property name="text">
+      <string>当前在线人数：0</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0" colspan="2">
+    <widget class="QTreeWidget" name="clientsInfo_treeWidget">
+     <property name="font">
+      <font>
+       <pointsize>12</pointsize>
+      </font>
+     </property>
+     <attribute name="headerCascadingSectionResizes">
+      <bool>true</bool>
+     </attribute>
+     <attribute name="headerDefaultSectionSize">
+      <number>200</number>
+     </attribute>
+     <attribute name="headerHighlightSections">
+      <bool>false</bool>
+     </attribute>
+     <attribute name="headerStretchLastSection">
+      <bool>true</bool>
+     </attribute>
      <column>
       <property name="text">
        <string>序号</string>
+      </property>
+      <property name="textAlignment">
+       <set>AlignCenter</set>
       </property>
      </column>
      <column>
       <property name="text">
        <string>IP</string>
       </property>
+      <property name="textAlignment">
+       <set>AlignCenter</set>
+      </property>
      </column>
      <column>
       <property name="text">
        <string>登录时间</string>
       </property>
+      <property name="textAlignment">
+       <set>AlignCenter</set>
+      </property>
      </column>
      <column>
       <property name="text">
        <string>uuid</string>
+      </property>
+      <property name="textAlignment">
+       <set>AlignCenter</set>
       </property>
      </column>
     </widget>

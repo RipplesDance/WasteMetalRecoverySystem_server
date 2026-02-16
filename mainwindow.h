@@ -15,6 +15,7 @@
 #include<QListWidgetItem>
 #include<QVector>
 #include<QCloseEvent>
+#include<QList>
 #include"transaction.h"
 #include"clientInfo.h"
 #include"dealDialog.h"
@@ -22,6 +23,7 @@
 #include"metalPriceDialog.h"
 #include"onlineClientsDialog.h"
 #include"quotation.h"
+#include"batteryDialog.h"
 
 enum {
     HANDSHAKE = 0,
@@ -61,8 +63,8 @@ public:
     void writeLog(QString msg);
     void messageFromClient(QTcpSocket* socket);
     void removeZombie(clientInfo* data);
-    void saveQuotationToLocal();
-    void readQuotationModel();
+    void saveQuotationToLocal(quotation data);
+    quotation readQuotationModel();
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -75,8 +77,12 @@ public slots:
     void selectedItem(QListWidgetItem *item);
     void onMetalPriceFrame();
     void onOnlineClientsFrame();
+    void onManageBatteryTypeFrame();
     void updateMetalPrice(metalPrice data);
     void heartBeatDetection();
+    void heartBeatResult();
+    void onBatteryChanged(QString key, batteryMaterialConcentration* value);
+    void onRemoveBattery(QString key);
 
 
 private:
@@ -89,6 +95,10 @@ private:
     dealDialog* deal_dialog;
     metalPriceDialog* metalPrice_dialog;
     onlineClientsDialog* onlineClients_dialog;
+    batteryDialog* battery_dialog;
+
+    int zombieNumber;
+    QTimer *heartBeatTimer;
 
     QString logFilePath;
     QFile logFile;

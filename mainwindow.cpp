@@ -7,6 +7,9 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    heartBeatTimer = new QTimer(this);
+    connect(heartBeatTimer,&QTimer::timeout, this, &MainWindow::heartBeatResult);
+
     ui->sort_box->addItem("按订单创建时间正序");
     ui->sort_box->addItem("按订单创建时间倒序");
     ui->sort_box->addItem("按报价大小正序");
@@ -25,6 +28,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->metalPrice_frame, &interactableFrame::clicked, this, &MainWindow::onMetalPriceFrame);
     connect(ui->onlineClients_frame, &interactableFrame::clicked, this, &MainWindow::onOnlineClientsFrame);
+    connect(ui->manageType_frame, &interactableFrame::clicked, this, &MainWindow::onManageBatteryTypeFrame);
 
     //dialog init
     deal_dialog = new dealDialog(this);
@@ -38,9 +42,14 @@ MainWindow::MainWindow(QWidget *parent)
     onlineClients_dialog->hide();
     connect(onlineClients_dialog,&onlineClientsDialog::heartBeat,this,&MainWindow::heartBeatDetection);
 
+    battery_dialog = new batteryDialog(this);
+    battery_dialog->hide();
+    connect(battery_dialog,&batteryDialog::batteryChanged,this,&MainWindow::onBatteryChanged);
+    connect(battery_dialog,&batteryDialog::removeBattery,this,&MainWindow::onRemoveBattery);
+
     init();
     //load quotation model
-    readQuotationModel();
+    quo = readQuotationModel();
 }
 
 MainWindow::~MainWindow()
@@ -398,8 +407,46 @@ void MainWindow::onOnlineClientsFrame()
 
 }
 
+void MainWindow::onManageBatteryTypeFrame()
+{
+    battery_dialog->show();
+    QList<QString> keys = quo.readAllBatteryType();
+    QList<batteryMaterialConcentration*> values = quo.readAllBatteryMaterialConcentration();
+    battery_dialog->clearTreeWidget();
+    for (int i=0;i<keys.length()&&values.length();i++) {
+        QString type = keys.at(i);
+        batteryMaterialConcentration* battery = values.at(i);
+        battery_dialog->addItemToTreeWidget(type, battery);
+    }
+}
+
+void MainWindow::onBatteryChanged(QString key, batteryMaterialConcentration* value)
+{
+    quo.batteryChangedHandler(key,value);
+    quo.saveBatteryToLocal(key,value);
+    addMsgToMsgServer("电池信息更改成功");
+}
+
+void MainWindow::onRemoveBattery(QString key)
+{
+    quo.removeBatteryByName(key);
+    if(quo.removeBatteryFromLocal(key))
+        addMsgToMsgServer("电池信息删除成功");
+    else
+        addMsgToMsgServer("电池信息删除失败");
+}
+
+void MainWindow::heartBeatResult()
+{
+    heartBeatTimer->stop();
+    addMsgToMsgServer(QString("心跳检测结束，已清除%1个客户端").arg(zombieNumber));
+}
+
 void MainWindow::heartBeatDetection()
 {
+    zombieNumber = 0;
+    heartBeatTimer->start(1000* 15);
+    addMsgToMsgServer("开始心跳测试...");
     QMap<QTcpSocket*, clientInfo*>::iterator it = clientMap.begin();
         while (it != clientMap.end()) {
             QTcpSocket* socket = it.key();
@@ -426,6 +473,7 @@ void MainWindow::removeZombie(clientInfo* data)
         clientInfo *info = it.value();
         onlineClients_dialog->addClient(info);
     }
+    zombieNumber++;
 }
 
 void MainWindow::updateMetalPrice(metalPrice data)
@@ -480,7 +528,7 @@ QString MainWindow::getCurrentDateTime()
     return time.toString("yyyy-MM-dd hh-mm");
 }
 
-void MainWindow::saveQuotationToLocal()
+void MainWindow::saveQuotationToLocal(quotation data)
 {
     QFile file("bin/quotation_model/quotation.dat");
     if(!file.open(QIODevice::WriteOnly))
@@ -490,25 +538,27 @@ void MainWindow::saveQuotationToLocal()
     }
     QDataStream out(&file);
     out.setVersion(QDataStream::Qt_5_14);
-    out << quo;
+    out << data;
 
-    quo.saveBatteryMaterialConcentrationToLocal();
+    data.saveAllBatteryToLocal();
 
     file.close();
 }
 
-void MainWindow::readQuotationModel()
+quotation MainWindow::readQuotationModel()
 {
+    quotation data;
     QFile file("bin/quotation_model/quotation.dat");
     if(!file.open(QIODevice::ReadOnly))
     {
         addMsgToMsgServer("无法读取核心报价模块!");
-        return;
+        return data;
     }
     QDataStream in(&file);
     in.setVersion(QDataStream::Qt_5_14);
-    in >> quo;
+    in >> data;
     file.close();
+    return data;
 }
 
 //client-server function
@@ -610,7 +660,7 @@ void MainWindow::messageFromClient(QTcpSocket* socket)
         sendMsgToSocket(socket, NEW_TRANSACTION, data);
         newTransactionRecived(data);
 
-        addMsgToMsgServer(QString("收到了一份订单"+ data.getId()));
+        addMsgToMsgServer(QString("收到了一份订单："+ data.getId()));
     }
     else if(msg_type == HEART_BEAT)
     {

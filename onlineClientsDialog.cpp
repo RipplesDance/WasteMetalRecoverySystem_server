@@ -8,11 +8,20 @@ onlineClientsDialog::onlineClientsDialog(QWidget *parent) :
     ui->setupUi(this);
     sequence=0;
     connect(ui->heartBeat_btn,&QPushButton::clicked,this,&onlineClientsDialog::heartBeat);
+    init();
 }
 
 onlineClientsDialog::~onlineClientsDialog()
 {
     delete ui;
+}
+
+void onlineClientsDialog::init()
+{
+    ui->clientsInfo_treeWidget->setColumnWidth(0,200);
+    ui->clientsInfo_treeWidget->setColumnWidth(1,150);
+    ui->clientsInfo_treeWidget->setColumnWidth(2,300);
+    ui->clientsInfo_treeWidget->setColumnWidth(3,550);
 }
 
 void onlineClientsDialog::addClient(clientInfo* data)
