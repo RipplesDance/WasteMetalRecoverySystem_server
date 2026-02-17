@@ -4,12 +4,18 @@ quotation::quotation()
 {
     init();
 
+
+    readAllBatteryFromLocal();
+    readAllRecoveryCostFromLocal();
+
     batteryMaterialConcentration* LCO = new batteryMaterialConcentration(0.071,0.602,0,0,0.1, 0.93, 0.35);
     LCO->setRecycleRatio(0.85, 0.95,0,0,0.98,0.95,0.95);
     batteryMap.insert("钴酸锂电池", LCO);
 
-    setProperty(0.8, 0.3, 0.35,45,0.2);
-    readAllBatteryFromLocal();
+    recoveryCost cost;
+    cost.setProperty(0.3, 0.35,45,0.2);
+    recoveryCostMap.insert("钴酸锂电池", cost);
+
 }
 
 quotation:: ~quotation()
@@ -19,32 +25,88 @@ quotation:: ~quotation()
 void quotation::init()
 {
 
-   Li_to_LCE = 73.89/ (6.94*2); // Li₂CO₃ = 73.89, Li = 6.94
-   Ni_to_NiSo4 = 262.87/ 58.69; // 6H₂O  NiSO₄·6H₂O = 262.87, Ni = 58.69
-   Co_to_CoSo4 = 281.10/ 58.93; // 7H₂O  CoSO₄·7H₂O = 281.10, Co = 58.93
-   Mn_to_MnSo4 = 169.02/ 54.94;// 1H₂O MnSO₄·H₂O = 169.02, Mn = 54.94
+    Li_to_LCE = 73.89/ (6.94*2); // Li₂CO₃ = 73.89, Li = 6.94
+    Ni_to_NiSo4 = 262.87/ 58.69; // 6H₂O  NiSO₄·6H₂O = 262.87, Ni = 58.69
+    Co_to_CoSo4 = 281.10/ 58.93; // 7H₂O  CoSO₄·7H₂O = 281.10, Co = 58.93
+    Mn_to_MnSo4 = 169.02/ 54.94;// 1H₂O MnSO₄·H₂O = 169.02, Mn = 54.94
 }
 
 void quotation::batteryChangedHandler(QString key, batteryMaterialConcentration* value)
 {
-    if (key == "新电池材料" || value == nullptr) return;
+    if (value == nullptr) return;
 
-    if (!batteryMap.contains(key)) {
+    if (batteryMap.contains(key)) {
         // exist
         batteryMaterialConcentration *oldData = batteryMap.take(key);
         if(oldData != value)
             delete oldData;
     }
-
     batteryMap.insert(key,value);
 }
 
-void quotation::removeBatteryByName(QString key)
+bool quotation::changeBatteryNameKey(QString newKey, QString oldKey)
 {
-    if (batteryMap.contains(key)) {
-        delete batteryMap.take(key); //delete original value
-        batteryMap.remove(key);
+    if(!batteryMap.contains(oldKey)) return false;
+    if(batteryMap.contains(newKey)) return false;
+
+    batteryMaterialConcentration* data = batteryMap.take(oldKey);
+    batteryMap.insert(newKey, data);
+
+    return  true;
+}
+
+bool quotation::changeRecoveryCostKey(QString newKey, QString oldKey)
+{
+    if(!recoveryCostMap.contains(oldKey)) return false;
+    if(recoveryCostMap.contains(newKey)) return false;
+
+    recoveryCost cost = recoveryCostMap.take(newKey);
+    recoveryCostMap.insert(newKey, cost);
+
+    return  true;
+}
+
+bool quotation::removeBatteryByName(QString key)
+{
+    if (!batteryMap.contains(key)) {
+        return false;
     }
+    delete batteryMap.take(key); //delete original value
+    batteryMap.remove(key);
+    return true;
+}
+
+bool quotation::removeRecoveryCostByName(QString key)
+{
+    if (!recoveryCostMap.contains(key)) {
+        return false;
+    }
+    recoveryCostMap.remove(key);
+    return true;
+}
+
+bool quotation::renameLocalBattery(QString origin, QString name)
+{
+    QString oldPath = "bin/quotation_model/" + origin.toUtf8().toBase64() + ".dat";
+    QString newPath = "bin/quotation_model/" + name.toUtf8().toBase64() + ".dat";
+
+    if (!QFile::exists(oldPath))
+        return false;
+
+    QFile::rename(oldPath, newPath);
+    return true;
+}
+
+bool quotation::renameLocalRecoveryCost(QString origin, QString name)
+{
+    QString oldPath = "bin/recoveryCost/" + origin.toUtf8().toBase64() + ".dat";
+    QString newPath = "bin/recoveryCost/" + name.toUtf8().toBase64() + ".dat";
+
+    if (!QFile::exists(oldPath))
+        return false;
+
+    QFile::rename(oldPath, newPath);
+    return true;
 }
 
 QList<QString> quotation::readAllBatteryType()
@@ -52,63 +114,96 @@ QList<QString> quotation::readAllBatteryType()
     return batteryMap.keys();
 }
 
- QList<batteryMaterialConcentration*> quotation::readAllBatteryMaterialConcentration()
- {
-     return batteryMap.values();
- }
-
- void quotation::saveBatteryToLocal(QString key, batteryMaterialConcentration* data)
- {
-     QString fileName =key.toUtf8().toBase64();
-
-     QFile file("bin/quotation_model/" + fileName + ".dat");
-     if(!file.open(QIODevice::WriteOnly))
-     {
-         qDebug()<<"无法打开文件"+fileName;
-         return;
-     }
-     QDataStream out(&file);
-     out.setVersion(QDataStream::Qt_5_14);
-     out<<*(data);
- }
-
- bool quotation::removeBatteryFromLocal(QString key)
- {
-     QString fileName =key.toUtf8().toBase64();
-
-     QString filePath = "bin/quotation_model/" + fileName + ".dat";
-     QFile file(filePath);
-     if(QFile::exists(filePath))
-     {
-         qDebug()<<"文件不存在";
-         return false;
-     }
-     if (file.remove())
-         return true;
-     else
-         return false;
- }
-
-void quotation::addBatteryType(QString key, batteryMaterialConcentration* data)
+QList<batteryMaterialConcentration*> quotation::readAllBatteryMaterialConcentration()
 {
-    batteryMap.insert(key, data);
+    return batteryMap.values();
+}
+
+bool quotation::saveBatteryToLocal(QString key, batteryMaterialConcentration* data)
+{
+    if (data == nullptr) return false;
     QString fileName =key.toUtf8().toBase64();
 
     QFile file("bin/quotation_model/" + fileName + ".dat");
     if(!file.open(QIODevice::WriteOnly))
     {
         qDebug()<<"无法打开文件"+fileName;
-        return;
+        return false;
     }
     QDataStream out(&file);
     out.setVersion(QDataStream::Qt_5_14);
     out<<*(data);
+    return true;
+}
+
+bool quotation::saveRecoveryCostToLocal(QString key, recoveryCost data)
+{
+    QString fileName =key.toUtf8().toBase64();
+
+    QFile file("bin/recoveryCost/" + fileName + ".dat");
+    if(!file.open(QIODevice::WriteOnly))
+    {
+        qDebug()<<"无法打开文件"+fileName;
+        return false;
+    }
+    QDataStream out(&file);
+    out.setVersion(QDataStream::Qt_5_14);
+    out<< data;
+    return true;
+}
+
+bool quotation::removeBatteryFromLocal(QString key)
+{
+    QString fileName =key.toUtf8().toBase64();
+
+    QString filePath = "bin/quotation_model/" + fileName + ".dat";
+    QFile file(filePath);
+    if(!QFile::exists(filePath))
+    {
+        qDebug()<<"文件不存在";
+        return false;
+    }
+    if (file.remove())
+        return true;
+    else
+        return false;
+}
+
+bool quotation::removeRecoveryCostFromLocal(QString key)
+{
+    QString fileName =key.toUtf8().toBase64();
+
+    QString filePath = "bin/recoveryCost/" + fileName + ".dat";
+    QFile file(filePath);
+    if(!QFile::exists(filePath))
+    {
+        qDebug()<<"文件不存在";
+        return false;
+    }
+    if (file.remove())
+        return true;
+    else
+        return false;
+}
+
+bool quotation::addBatteryType(QString key, batteryMaterialConcentration* data)
+{
+    if(batteryMap.contains(key)) return false;
+    batteryMap.insert(key, data);
+    return true;
+}
+
+bool quotation::addRecoveryCost(QString key, recoveryCost data)
+{
+    if(recoveryCostMap.contains(key)) return false;
+    recoveryCostMap.insert(key, data);
+    return true;
 }
 
 void quotation::saveAllBatteryToLocal()
 {
     QDir dir;
-        if (!dir.exists("bin/quotation_model")) dir.mkdir("bin/quotation_model");
+    if (!dir.exists("bin/quotation_model")) dir.mkdir("bin/quotation_model");
 
     QMap<QString, batteryMaterialConcentration*>::iterator it = batteryMap.begin();
     while(it != batteryMap.end())
@@ -135,43 +230,65 @@ void quotation::readAllBatteryFromLocal()
     batteryMap.clear();
 
     QDir dir("bin/quotation_model");
-        QStringList filters;
-        filters << "*.dat";
-        dir.setNameFilters(filters);
+    QStringList filters;
+    filters << "*.dat";
+    dir.setNameFilters(filters);
 
-        // 获取文件列表
-        QFileInfoList list = dir.entryInfoList();
+    QFileInfoList list = dir.entryInfoList(QDir::Files | QDir::NoDot | QDir::NoDotDot);
 
-        for (int i = 0; i < list.size(); ++i) {
-            QFileInfo fileInfo = list.at(i);
-            QFile file(fileInfo.absoluteFilePath());
+    for (int i = 0; i < list.size(); ++i) {
+        QFileInfo fileInfo = list.at(i);
+        QFile file(fileInfo.absoluteFilePath());
 
-            if (file.open(QIODevice::ReadOnly)) {
-                QDataStream in(&file);
-                in.setVersion(QDataStream::Qt_5_14);
+        if (file.open(QIODevice::ReadOnly)) {
+            QDataStream in(&file);
+            in.setVersion(QDataStream::Qt_5_14);
 
-                QString fileName = fileInfo.baseName();
-                QByteArray base64Data = QByteArray::fromBase64(fileName.toUtf8());
-                QString key = QString::fromUtf8(base64Data);
+            QString fileName = fileInfo.baseName();
+            QByteArray base64Data = QByteArray::fromBase64(fileName.toUtf8());
+            QString key = QString::fromUtf8(base64Data);
 
-                batteryMaterialConcentration *obj = new batteryMaterialConcentration();
-                in >> *obj;
+            batteryMaterialConcentration *obj = new batteryMaterialConcentration();
+            in >> *obj;
 
-                batteryMap.insert(key, obj);
+            batteryMap.insert(key, obj);
 
-                file.close();
-            }
+            file.close();
         }
+    }
 }
 
-void quotation::setProperty(double transitionRatio,double unitPrice_80, double unitPrice_90,double price_per_kilo, double profit)
+void quotation::readAllRecoveryCostFromLocal()
 {
-    this->unitPrice_80 = unitPrice_80;
-    this->unitPrice_90 = unitPrice_90;
+    recoveryCostMap.clear();
 
-    this->price_per_kilo = price_per_kilo;
-    this->profit = profit;
-    this->transitionRatio = transitionRatio;
+    QDir dir("bin/recoveryCost");
+    QStringList filters;
+    filters << "*.dat";
+    dir.setNameFilters(filters);
+
+    QFileInfoList list = dir.entryInfoList(QDir::Files | QDir::NoDot | QDir::NoDotDot);
+
+    for (int i = 0; i < list.size(); ++i) {
+        QFileInfo fileInfo = list.at(i);
+        QFile file(fileInfo.absoluteFilePath());
+
+        if (file.open(QIODevice::ReadOnly)) {
+            QDataStream in(&file);
+            in.setVersion(QDataStream::Qt_5_14);
+
+            QString fileName = fileInfo.baseName();
+            QByteArray base64Data = QByteArray::fromBase64(fileName.toUtf8());
+            QString key = QString::fromUtf8(base64Data);
+
+            recoveryCost obj;
+            in >> obj;
+
+            recoveryCostMap.insert(key, obj);
+
+            file.close();
+        }
+    }
 }
 
 double quotation::quotationCaculator(QString type, double energyDensity, double weight, double SOH,
@@ -190,8 +307,8 @@ double quotation::quotationCaculator(QString type, double energyDensity, double 
         //reusable
         double finalPrice = weight * energyDensity * SOH;
         if(SOH>=0.9)
-            return finalPrice * unitPrice_90;
-        return finalPrice * unitPrice_80;
+            return finalPrice * recoveryCostMap.value(type).unitPrice_90;
+        return finalPrice * recoveryCostMap.value(type).unitPrice_80;
     }
 
     double positiveMaterial = weight * battery->positiveMaterialsRatio * battery->positiveMaterial_recycleRatio;
@@ -213,20 +330,9 @@ double quotation::quotationCaculator(QString type, double energyDensity, double 
 
     //final price
     double finalPrice = (li_quotation+co_quotation+mn_quotation+ni_quotation+cu_quotation)
-            - price_per_kilo * weight;
+            - recoveryCostMap.value(type).price_per_kilo * weight;
 
-    return finalPrice > 0 ? finalPrice* (1 - profit) : 0;
+    return finalPrice > 0 ? finalPrice* (1 - recoveryCostMap.value(type).profit) : 0;
 
 }
 
-QDataStream &operator<<(QDataStream &out, const quotation &data)
-{
-    out<<data.transitionRatio << data.unitPrice_80 << data.unitPrice_90 << data.price_per_kilo << data.profit;
-    return out;
-}
-
-QDataStream &operator>>(QDataStream &in, quotation &data)
-{
-    in>>data.transitionRatio >> data.unitPrice_80 >> data.unitPrice_90 >> data.price_per_kilo >> data.profit;
-    return in;
-}

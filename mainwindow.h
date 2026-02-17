@@ -24,6 +24,8 @@
 #include"onlineClientsDialog.h"
 #include"quotation.h"
 #include"batteryDialog.h"
+#include"quotationDialog.h"
+#include"recoveryCost.h"
 
 enum {
     HANDSHAKE = 0,
@@ -78,31 +80,38 @@ public slots:
     void onMetalPriceFrame();
     void onOnlineClientsFrame();
     void onManageBatteryTypeFrame();
+    void onUpdateQuotationFrame();
     void updateMetalPrice(metalPrice data);
     void heartBeatDetection();
     void heartBeatResult();
     void onBatteryChanged(QString key, batteryMaterialConcentration* value);
+//    void onRecoveryCostChanged(QString key, recoveryCost data);
     void onRemoveBattery(QString key);
+    void onBatteryNameChanged(QString newKey, QString oldKey);
+    void onNewBattery(QString key, batteryMaterialConcentration* value);
 
 
 private:
     Ui::MainWindow *ui;
+    //network parameters
     QTcpServer *server;
     QMap<QTcpSocket*, clientInfo*> clientMap;
+    //transaction parameters
     QVector<transaction> fileVector;
     QVector<transaction> finishedFileVector;
-
+    //extra dialog parameters
     dealDialog* deal_dialog;
     metalPriceDialog* metalPrice_dialog;
     onlineClientsDialog* onlineClients_dialog;
     batteryDialog* battery_dialog;
-
+    quotationDialog* quotation_dialog;
+    //auxiliary parameters
     int zombieNumber;
     QTimer *heartBeatTimer;
-
+    //file parameters
     QString logFilePath;
     QFile logFile;
-
+    //quotation model parameters
     quotation quo;
 
 };

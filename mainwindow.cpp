@@ -29,6 +29,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->metalPrice_frame, &interactableFrame::clicked, this, &MainWindow::onMetalPriceFrame);
     connect(ui->onlineClients_frame, &interactableFrame::clicked, this, &MainWindow::onOnlineClientsFrame);
     connect(ui->manageType_frame, &interactableFrame::clicked, this, &MainWindow::onManageBatteryTypeFrame);
+    connect(ui->updateQuotation_frame,&interactableFrame::clicked,this,&MainWindow::onUpdateQuotationFrame);
 
     //dialog init
     deal_dialog = new dealDialog(this);
@@ -46,10 +47,14 @@ MainWindow::MainWindow(QWidget *parent)
     battery_dialog->hide();
     connect(battery_dialog,&batteryDialog::batteryChanged,this,&MainWindow::onBatteryChanged);
     connect(battery_dialog,&batteryDialog::removeBattery,this,&MainWindow::onRemoveBattery);
+    connect(battery_dialog,&batteryDialog::batteryNameChanged,this,&MainWindow::onBatteryNameChanged);
+    connect(battery_dialog,&batteryDialog::newBattery,this,&MainWindow::onNewBattery);
+
+    quotation_dialog = new quotationDialog(this);
+    quotation_dialog->hide();
 
     init();
     //load quotation model
-    quo = readQuotationModel();
 }
 
 MainWindow::~MainWindow()
@@ -390,6 +395,7 @@ void MainWindow::saveTransactionToLocal(transaction data)
 void MainWindow::onMetalPriceFrame()
 {
     metalPrice_dialog->show();
+    metalPrice_dialog->setMetalPrice(readMetalPriceFromLocal());
 }
 
 void MainWindow::onOnlineClientsFrame()
@@ -420,20 +426,58 @@ void MainWindow::onManageBatteryTypeFrame()
     }
 }
 
+void MainWindow::onUpdateQuotationFrame()
+{
+    quotation_dialog->show();
+}
+
 void MainWindow::onBatteryChanged(QString key, batteryMaterialConcentration* value)
 {
     quo.batteryChangedHandler(key,value);
     quo.saveBatteryToLocal(key,value);
-    addMsgToMsgServer("电池信息更改成功");
+    addMsgToMsgServer(key + "信息更改成功");
+}
+
+void MainWindow::onBatteryNameChanged(QString newKey, QString oldKey)
+{
+    if(!quo.changeBatteryNameKey(newKey,oldKey))
+        addMsgToMsgServer("电池命名修改失败！电池材料已存在或没有没有旧的电池材料信息");
+    else
+        addMsgToMsgServer("电池材料重命名成功！");
+    quo.changeRecoveryCostKey(newKey,oldKey);
+    quo.renameLocalBattery(oldKey,newKey);
+    quo.renameLocalRecoveryCost(oldKey,newKey);
 }
 
 void MainWindow::onRemoveBattery(QString key)
 {
-    quo.removeBatteryByName(key);
     if(quo.removeBatteryFromLocal(key))
         addMsgToMsgServer("电池信息删除成功");
     else
+    {
         addMsgToMsgServer("电池信息删除失败");
+        return;
+    }
+    quo.removeBatteryByName(key);
+    quo.removeRecoveryCostByName(key);
+    quo.removeRecoveryCostFromLocal(key);
+}
+
+void MainWindow::onNewBattery(QString key, batteryMaterialConcentration* value)
+{
+    if(quo.addBatteryType(key,value))
+        addMsgToMsgServer("电池材料添加成功");
+    else
+    {
+        addMsgToMsgServer("电池材料添加失败");
+        return;
+    }
+
+    recoveryCost cost;
+    quo.addRecoveryCost(key, cost);
+    quo.saveRecoveryCostToLocal(key, cost);
+    quo.saveBatteryToLocal(key,value);
+
 }
 
 void MainWindow::heartBeatResult()
@@ -528,38 +572,38 @@ QString MainWindow::getCurrentDateTime()
     return time.toString("yyyy-MM-dd hh-mm");
 }
 
-void MainWindow::saveQuotationToLocal(quotation data)
-{
-    QFile file("bin/quotation_model/quotation.dat");
-    if(!file.open(QIODevice::WriteOnly))
-    {
-        addMsgToMsgServer("无法保存核心报价模块!");
-        return;
-    }
-    QDataStream out(&file);
-    out.setVersion(QDataStream::Qt_5_14);
-    out << data;
+//void MainWindow::saveQuotationToLocal(quotation data)
+//{
+//    QFile file("bin/quotation_model/quotation.dat");
+//    if(!file.open(QIODevice::WriteOnly))
+//    {
+//        addMsgToMsgServer("无法保存核心报价模块!");
+//        return;
+//    }
+//    QDataStream out(&file);
+//    out.setVersion(QDataStream::Qt_5_14);
+//    out << data;
 
-    data.saveAllBatteryToLocal();
+//    data.saveAllBatteryToLocal();
 
-    file.close();
-}
+//    file.close();
+//}
 
-quotation MainWindow::readQuotationModel()
-{
-    quotation data;
-    QFile file("bin/quotation_model/quotation.dat");
-    if(!file.open(QIODevice::ReadOnly))
-    {
-        addMsgToMsgServer("无法读取核心报价模块!");
-        return data;
-    }
-    QDataStream in(&file);
-    in.setVersion(QDataStream::Qt_5_14);
-    in >> data;
-    file.close();
-    return data;
-}
+//quotation MainWindow::readQuotationModel()
+//{
+//    quotation data;
+//    QFile file("bin/quotation_model/quotation.dat");
+//    if(!file.open(QIODevice::ReadOnly))
+//    {
+//        addMsgToMsgServer("无法读取核心报价模块!");
+//        return data;
+//    }
+//    QDataStream in(&file);
+//    in.setVersion(QDataStream::Qt_5_14);
+//    in >> data;
+//    file.close();
+//    return data;
+//}
 
 //client-server function
 void MainWindow::clientConnected()

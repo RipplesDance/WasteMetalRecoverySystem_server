@@ -14,62 +14,129 @@ batteryDialog::batteryDialog(QWidget *parent) :
 void batteryDialog::init()
 {
     for(int i = 0; i < ui->batteryInfo_treeWidget->columnCount(); ++i) {
-            ui->batteryInfo_treeWidget->resizeColumnToContents(i);
-        }
+        ui->batteryInfo_treeWidget->resizeColumnToContents(i);
+    }
     ui->batteryInfo_treeWidget->setColumnWidth(0,200);
 }
 
-void batteryDialog::handleItemChanged(QTreeWidgetItem *item)
+void batteryDialog::handleItemChanged(QTreeWidgetItem *item, int column)
 {
-    qDebug()<<"itemChanged";
-    QString key = item->text(0);
-    batteryMaterialConcentration* value = fetchDataFromItem(item);
-    batteryChanged(key, value);
+    qDebug()<<"item changed";
+    if(!itemMap.contains(item))return;
+    QString oldKey = itemMap.value(item);
+    QString newKey = item->text(0);
+    if(oldKey == newKey)
+    {
+        //value changed
+        if(item->text(column).isEmpty())
+        {
+            ui->batteryInfo_treeWidget->blockSignals(true);
+            item->setText(column, "0%");
+            ui->batteryInfo_treeWidget->blockSignals(false);
+        }
+
+        //set range
+        QString rawText = item->text(column);
+        double num = fetchNumberFromString(rawText);
+        if (num < 0) num = 0;
+        if (num > 100) num = 100;
+        ui->batteryInfo_treeWidget->blockSignals(true);
+        item->setText(column, QString::number(num) + "%");
+        ui->batteryInfo_treeWidget->blockSignals(false);
+
+        batteryMaterialConcentration* value = fetchDataFromItem(item);
+        emit batteryChanged(oldKey, value);
+        return;
+    }
+    //else battery name changed
+    if (newKey.isEmpty()|| isBatteryNameExists(newKey) || newKey == "新电池材料") {
+        QMessageBox::warning(this,"警告","新名字已经存在或违法！");
+        ui->batteryInfo_treeWidget->blockSignals(true);
+        item->setText(0, oldKey);
+        ui->batteryInfo_treeWidget->blockSignals(false);
+        return;
+    }
+    itemMap[item] = newKey;
+    emit batteryNameChanged(newKey, oldKey);
+
+}
+
+double batteryDialog::fetchNumberFromString(QString str)
+{
+    QRegularExpression re("\\d+\\.?\\d*");
+    QRegularExpressionMatch match = re.match(str);
+    double num = 0.00;
+
+    if (match.hasMatch()) {
+        QString result = match.captured(0);
+        num = result.toDouble();
+    }
+    return num;
 }
 
 batteryMaterialConcentration* batteryDialog::fetchDataFromItem(QTreeWidgetItem *item)
 {
     batteryMaterialConcentration* data = new batteryMaterialConcentration;
-    data->positiveMaterialsRatio = item->text(1).toDouble();
-    data->positiveMaterial_recycleRatio = item->text(2).toDouble();
-    data->compoundRatio = item->text(3).toDouble();
-    data->compound_recycleRatio = item->text(4).toDouble();
-    data->li = item->text(5).toDouble();
-    data->li_recycleRatio = item->text(6).toDouble();
-    data->co = item->text(7).toDouble();
-    data->co_recycleRatio = item->text(8).toDouble();
-    data->ni = item->text(9).toDouble();
-    data->ni_recycleRatio = item->text(10).toDouble();
-    data->mn = item->text(11).toDouble();
-    data->mn_recycleRatio = item->text(12).toDouble();
-    data->cu = item->text(13).toDouble();
-    data->cu_recycleRatio = item->text(14).toDouble();
+    data->positiveMaterialsRatio = fetchNumberFromString(item->text(1))/100;
+    data->positiveMaterial_recycleRatio = fetchNumberFromString(item->text(2))/100;
+    data->compoundRatio = fetchNumberFromString(item->text(3))/100;
+    data->compound_recycleRatio = fetchNumberFromString(item->text(4))/100;
+    data->li = fetchNumberFromString(item->text(5))/100;
+    data->li_recycleRatio = fetchNumberFromString(item->text(6))/100;
+    data->co = fetchNumberFromString(item->text(7))/100;
+    data->co_recycleRatio = fetchNumberFromString(item->text(8))/100;
+    data->ni = fetchNumberFromString(item->text(9))/100;
+    data->ni_recycleRatio = fetchNumberFromString(item->text(10))/100;
+    data->mn = fetchNumberFromString(item->text(11))/100;
+    data->mn_recycleRatio = fetchNumberFromString(item->text(12))/100;
+    data->cu = fetchNumberFromString(item->text(13))/100;
+    data->cu_recycleRatio = fetchNumberFromString(item->text(14))/100;
     return data;
+}
+
+bool batteryDialog::isBatteryNameExists(QString str)
+{
+    QMap<QTreeWidgetItem*, QString>::iterator it = itemMap.begin();
+    while (it != itemMap.end()) {
+        if(it.value() == str)
+            return true;
+        it++;
+    }
+    return false;
 }
 
 void batteryDialog::showContextMenu(QPoint pos)
 {
-        QMenu menu(this);
+    QMenu menu(this);
 
-        QAction *addAction = menu.addAction("添加新电池材料");
+    QAction *addAction = menu.addAction("添加新电池材料");
 
-        QTreeWidgetItem *curItem = ui->batteryInfo_treeWidget->itemAt(pos);
-        QAction *delAction = nullptr;
+    QTreeWidgetItem *curItem = ui->batteryInfo_treeWidget->itemAt(pos);
+    QAction *delAction = nullptr;
 
-        if (curItem) {
-            delAction = menu.addAction("删除当前电池材料");
-        }
+    if (curItem) {
+        delAction = menu.addAction("删除当前电池材料");
+    }
 
-        QAction *selectedAction = menu.exec(QCursor::pos());
+    QAction *selectedAction = menu.exec(QCursor::pos());
 
-        if (selectedAction == addAction) {
-            addNewItem();
-        } else if (curItem && selectedAction == delAction) {
-            deleteSelectedItem(curItem);
-        }
+    if (selectedAction == addAction) {
+        addNewItem();
+    } else if (curItem && selectedAction == delAction) {
+        deleteSelectedItem(curItem);
+    }
 }
 
 void batteryDialog::addNewItem() {
+
+    if(isBatteryNameExists("新电池材料"))
+    {
+        QMessageBox::warning(this,"警告","当前已新建一个项，无法创建更多！");
+        return;
+    }
+
+    ui->batteryInfo_treeWidget->blockSignals(true);
+
     QTreeWidgetItem *newItem = new QTreeWidgetItem(ui->batteryInfo_treeWidget);
     newItem->setText(0, "新电池材料");
     newItem->setText(1, QString::number(0)+"%");
@@ -89,8 +156,12 @@ void batteryDialog::addNewItem() {
 
     newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
 
+    itemMap.insert(newItem,"新电池材料");
+
     ui->batteryInfo_treeWidget->addTopLevelItem(newItem);
     ui->batteryInfo_treeWidget->editItem(newItem, 0); // edit immediately
+    ui->batteryInfo_treeWidget->blockSignals(false);
+    emit newBattery("新电池材料", new batteryMaterialConcentration);
 }
 
 void batteryDialog::deleteSelectedItem(QTreeWidgetItem *item) {
@@ -101,6 +172,8 @@ void batteryDialog::deleteSelectedItem(QTreeWidgetItem *item) {
     auto result = QMessageBox::question(this, "确认删除", QString("确定要删除电池材料 [%1] 吗？").arg(key));
     if (result == QMessageBox::Yes) {
 
+        itemMap.remove(item);
+
         emit removeBattery(key);
         delete item;
     }
@@ -108,6 +181,7 @@ void batteryDialog::deleteSelectedItem(QTreeWidgetItem *item) {
 
 void batteryDialog::clearTreeWidget()
 {
+    itemMap.clear();
     ui->batteryInfo_treeWidget->clear();
 }
 
@@ -134,6 +208,7 @@ void batteryDialog::addItemToTreeWidget(QString key, batteryMaterialConcentratio
 
     item->setFlags(item->flags() | Qt::ItemIsEditable);
 
+    itemMap.insert(item,key);
     ui->batteryInfo_treeWidget->blockSignals(false);
 
 }

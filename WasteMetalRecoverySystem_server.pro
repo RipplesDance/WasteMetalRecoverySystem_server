@@ -27,6 +27,8 @@ SOURCES += \
     metalPriceDialog.cpp \
     onlineClientsDialog.cpp \
     quotation.cpp \
+    quotationDialog.cpp \
+    recoveryCost.cpp \
     transaction.cpp
 
 HEADERS += \
@@ -40,6 +42,8 @@ HEADERS += \
     metalPriceDialog.h \
     onlineClientsDialog.h \
     quotation.h \
+    quotationDialog.h \
+    recoveryCost.h \
     transaction.h
 
 FORMS += \
@@ -47,7 +51,8 @@ FORMS += \
     dealDialog.ui \
     mainwindow.ui \
     metalPriceDialog.ui \
-    onlineClientsDialog.ui
+    onlineClientsDialog.ui \
+    quotationDialog.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

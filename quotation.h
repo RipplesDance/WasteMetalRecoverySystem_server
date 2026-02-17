@@ -9,6 +9,7 @@
 #include<QFile>
 #include<QList>
 #include"batteryMaterialConcentration.h"
+#include"recoveryCost.h"
 
 class quotation
 {
@@ -18,24 +19,32 @@ public:
     ~quotation();
     double quotationCaculator(QString type, double energyDensity, double weight, double SOH, QMap<QString, double> metalPriceMap);
     void init();
-    void setProperty(double transitionRatio, double unitPrice_80, double unitPrice_90,
-                     double price_per_kilo, double profit);
 
     void saveAllBatteryToLocal();
     void readAllBatteryFromLocal();
-    void addBatteryType(QString key, batteryMaterialConcentration* data);
-    void saveBatteryToLocal(QString key, batteryMaterialConcentration* data);
+    void readAllRecoveryCostFromLocal();
+    bool addBatteryType(QString key, batteryMaterialConcentration* data);
+    bool addRecoveryCost(QString key, recoveryCost data);
+    bool saveBatteryToLocal(QString key, batteryMaterialConcentration* data);
+    bool saveRecoveryCostToLocal(QString key, recoveryCost data);
     bool removeBatteryFromLocal(QString key);
+    bool removeRecoveryCostFromLocal(QString key);
     QList<QString> readAllBatteryType();
     QList<batteryMaterialConcentration*> readAllBatteryMaterialConcentration();
     void batteryChangedHandler(QString key, batteryMaterialConcentration* value);
-    void removeBatteryByName(QString key);
+    bool changeBatteryNameKey(QString newKey, QString oldKey);
+    bool changeRecoveryCostKey(QString newKey, QString oldKey);
+    bool removeBatteryByName(QString key);
+    bool removeRecoveryCostByName(QString key);
+    bool renameLocalBattery(QString origin, QString name);
+    bool renameLocalRecoveryCost(QString origin, QString name);
 
-    friend QDataStream &operator<<(QDataStream &out, const quotation &data);
-    friend QDataStream &operator>>(QDataStream &in, quotation &data);
+//    friend QDataStream &operator<<(QDataStream &out, const quotation &data);
+//    friend QDataStream &operator>>(QDataStream &in, quotation &data);
 
 private:
     QMap<QString, batteryMaterialConcentration*> batteryMap;
+    QMap<QString, recoveryCost> recoveryCostMap;
 
 public:
 
@@ -48,11 +57,6 @@ public:
 
     //property
     double transitionRatio; //cost, efficiency, etc..
-    double unitPrice_80;//CNY/Wh. Depends on market
-    double unitPrice_90;//CNY/Wh. Depends on market
-
-    double price_per_kilo; //include electricity fee， labor fee, and chemicals fee. Count in CNY.
-    double profit;
 };
 
 #endif // QUOTATION_H

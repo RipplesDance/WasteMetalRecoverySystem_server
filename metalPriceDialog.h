@@ -16,7 +16,7 @@ public:
     explicit metalPriceDialog(QWidget *parent = nullptr);
     ~metalPriceDialog();
     void init();
-
+    void setMetalPrice(metalPrice data);
 
 signals:
     void update(metalPrice data);

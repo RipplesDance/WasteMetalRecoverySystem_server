@@ -42,3 +42,12 @@ void metalPriceDialog::init()
     ui->mnPrice_spinBox->setValue(0);
     ui->cuPrice_spinBox->setValue(0);
 }
+
+void metalPriceDialog::setMetalPrice(metalPrice data)
+{
+    ui->liPrice_spinBox->setValue(data.liPrice);
+    ui->coPrice_spinBox->setValue(data.coPrice);
+    ui->niPrice_spinBox->setValue(data.niPrice);
+    ui->mnPrice_spinBox->setValue(data.mnPrice);
+    ui->cuPrice_spinBox->setValue(data.cuPrice);
+}
