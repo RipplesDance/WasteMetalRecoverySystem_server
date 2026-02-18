@@ -12,14 +12,24 @@ quotation::quotation()
     LCO->setRecycleRatio(0.85, 0.95,0,0,0.98,0.95,0.95);
     batteryMap.insert("钴酸锂电池", LCO);
 
-    recoveryCost cost;
-    cost.setProperty(0.3, 0.35,45,0.2);
-    recoveryCostMap.insert("钴酸锂电池", cost);
+//    recoveryCost cost;
+//    cost.setProperty(0.3, 0.35,45,0.2);
+//    recoveryCostMap.insert("钴酸锂电池", cost);
 
 }
 
 quotation:: ~quotation()
 {
+}
+
+void quotation::toogleTemporaryCostCalculator()
+{
+    enableTemporaryCost = !enableTemporaryCost;
+}
+
+void quotation::setTemporaryCost(recoveryCost data)
+{
+    this->cost = data;
 }
 
 void quotation::init()
@@ -29,9 +39,12 @@ void quotation::init()
     Ni_to_NiSo4 = 262.87/ 58.69; // 6H₂O  NiSO₄·6H₂O = 262.87, Ni = 58.69
     Co_to_CoSo4 = 281.10/ 58.93; // 7H₂O  CoSO₄·7H₂O = 281.10, Co = 58.93
     Mn_to_MnSo4 = 169.02/ 54.94;// 1H₂O MnSO₄·H₂O = 169.02, Mn = 54.94
+
+    enableTemporaryCost = false;
 }
 
-void quotation::batteryChangedHandler(QString key, batteryMaterialConcentration* value)
+//other functions
+void quotation::changeBatteryValue(QString key, batteryMaterialConcentration* value)
 {
     if (value == nullptr) return;
 
@@ -42,6 +55,11 @@ void quotation::batteryChangedHandler(QString key, batteryMaterialConcentration*
             delete oldData;
     }
     batteryMap.insert(key,value);
+}
+
+void quotation::changeRecoveryCostValue(QString key, recoveryCost value)
+{
+    recoveryCostMap.insert(key,value);
 }
 
 bool quotation::changeBatteryNameKey(QString newKey, QString oldKey)
@@ -291,8 +309,18 @@ void quotation::readAllRecoveryCostFromLocal()
     }
 }
 
-double quotation::quotationCaculator(QString type, double energyDensity, double weight, double SOH,
-                                     QMap<QString, double> metalPriceMap)
+void quotation::setMetalPrice(metalPrice data)
+{
+    this->metal_price = data;
+}
+
+recoveryCost quotation::fetchRecoveryCostByKey(QString key)
+{
+    return recoveryCostMap.value(key);
+}
+
+//core model functions
+double quotation::quotationCaculator(QString type, double energyDensity, double weight, double SOH)
 {
     if(!batteryMap.contains(type))
     {
@@ -300,15 +328,23 @@ double quotation::quotationCaculator(QString type, double energyDensity, double 
         return 0.0;
     }
 
+    recoveryCost cost = recoveryCostMap.value(type);
     batteryMaterialConcentration* battery = batteryMap.value(type);
+    //check if enable temporary cost calculator
+    if(enableTemporaryCost)
+    {
+        cost = this->cost;
+    }
+    qDebug()<<cost << SOH << weight << energyDensity;
+    qDebug()<<metal_price;
 
     if(SOH >= 0.8 && energyDensity > 0)
     {
         //reusable
         double finalPrice = weight * energyDensity * SOH;
         if(SOH>=0.9)
-            return finalPrice * recoveryCostMap.value(type).unitPrice_90;
-        return finalPrice * recoveryCostMap.value(type).unitPrice_80;
+            return finalPrice * cost.unitPrice_90;
+        return finalPrice * cost.unitPrice_80;
     }
 
     double positiveMaterial = weight * battery->positiveMaterialsRatio * battery->positiveMaterial_recycleRatio;
@@ -321,18 +357,29 @@ double quotation::quotationCaculator(QString type, double energyDensity, double 
     double ni_amount = positiveMaterialCompound * battery->ni * battery->ni_recycleRatio;
 
     //metal price
-    double li_quotation = li_amount * Li_to_LCE * metalPriceMap.value("Li") * transitionRatio;
-    double ni_quotation = ni_amount * Ni_to_NiSo4 * metalPriceMap.value("Ni") * transitionRatio;
-    double co_quotation = co_amount * Co_to_CoSo4 * metalPriceMap.value("Co") * transitionRatio;
-    double mn_quotation = mn_amount * Mn_to_MnSo4 * metalPriceMap.value("Mn") * transitionRatio;
+    double li_quotation = li_amount * Li_to_LCE * (metal_price.liPrice/1000) * cost.LCE_transitionRatio;
+    double ni_quotation = ni_amount * Ni_to_NiSo4 * (metal_price.niPrice/1000) * cost.NiSo4_transitionRatio;
+    double co_quotation = co_amount * Co_to_CoSo4 * (metal_price.coPrice/1000) * cost.CoSo4_transitionRatio;
+    double mn_quotation = mn_amount * Mn_to_MnSo4 * (metal_price.mnPrice/1000) * cost.MnSo4_transitionRatio;
 
-    double cu_quotation = weight * battery->cu * battery->cu_recycleRatio * metalPriceMap.value("Cu");
+    double cu_quotation = weight * battery->cu * battery->cu_recycleRatio * (metal_price.cuPrice/1000);
 
     //final price
     double finalPrice = (li_quotation+co_quotation+mn_quotation+ni_quotation+cu_quotation)
-            - recoveryCostMap.value(type).price_per_kilo * weight;
+            - cost.price_per_kilo * weight;
 
-    return finalPrice > 0 ? finalPrice* (1 - recoveryCostMap.value(type).profit) : 0;
+    return finalPrice > 0 ? finalPrice* (1 - cost.profit) : 0;
 
 }
 
+//QDataStream &operator<<(QDataStream &out, const quotation &data)
+//{
+//    out<<data.LCE_transitionRatio << data.CoSo4_transitionRatio << data.NiSo4_transitionRatio << data.MnSo4_transitionRatio;
+//    return out;
+//}
+
+//QDataStream &operator>>(QDataStream &in, quotation &data)
+//{
+//    in>>data.LCE_transitionRatio >> data.CoSo4_transitionRatio >> data.NiSo4_transitionRatio >> data.MnSo4_transitionRatio;
+//    return in;
+//}

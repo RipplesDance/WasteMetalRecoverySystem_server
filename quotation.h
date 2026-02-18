@@ -10,6 +10,7 @@
 #include<QList>
 #include"batteryMaterialConcentration.h"
 #include"recoveryCost.h"
+#include"metalPrice.h"
 
 class quotation
 {
@@ -17,12 +18,15 @@ class quotation
 public:
     quotation();
     ~quotation();
-    double quotationCaculator(QString type, double energyDensity, double weight, double SOH, QMap<QString, double> metalPriceMap);
+    double quotationCaculator(QString type, double energyDensity, double weight, double SOH);
     void init();
+    void toogleTemporaryCostCalculator();
+    void setTemporaryCost(recoveryCost data);
 
     void saveAllBatteryToLocal();
     void readAllBatteryFromLocal();
     void readAllRecoveryCostFromLocal();
+    void setMetalPrice(metalPrice data);
     bool addBatteryType(QString key, batteryMaterialConcentration* data);
     bool addRecoveryCost(QString key, recoveryCost data);
     bool saveBatteryToLocal(QString key, batteryMaterialConcentration* data);
@@ -31,13 +35,15 @@ public:
     bool removeRecoveryCostFromLocal(QString key);
     QList<QString> readAllBatteryType();
     QList<batteryMaterialConcentration*> readAllBatteryMaterialConcentration();
-    void batteryChangedHandler(QString key, batteryMaterialConcentration* value);
+    void changeBatteryValue(QString key, batteryMaterialConcentration* value);
+    void changeRecoveryCostValue(QString key, recoveryCost value);
     bool changeBatteryNameKey(QString newKey, QString oldKey);
     bool changeRecoveryCostKey(QString newKey, QString oldKey);
     bool removeBatteryByName(QString key);
     bool removeRecoveryCostByName(QString key);
     bool renameLocalBattery(QString origin, QString name);
     bool renameLocalRecoveryCost(QString origin, QString name);
+    recoveryCost fetchRecoveryCostByKey(QString key);
 
 //    friend QDataStream &operator<<(QDataStream &out, const quotation &data);
 //    friend QDataStream &operator>>(QDataStream &in, quotation &data);
@@ -45,6 +51,7 @@ public:
 private:
     QMap<QString, batteryMaterialConcentration*> batteryMap;
     QMap<QString, recoveryCost> recoveryCostMap;
+    metalPrice metal_price;
 
 public:
 
@@ -55,8 +62,11 @@ public:
     double Mn_to_MnSo4;// 1H₂O MnSO₄·H₂O
 
 
-    //property
-    double transitionRatio; //cost, efficiency, etc..
+    //temporary property
+private:
+    bool enableTemporaryCost;
+    recoveryCost cost;
+    batteryMaterialConcentration* battery;
 };
 
 #endif // QUOTATION_H

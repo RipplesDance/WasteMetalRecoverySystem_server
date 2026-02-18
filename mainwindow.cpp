@@ -45,16 +45,20 @@ MainWindow::MainWindow(QWidget *parent)
 
     battery_dialog = new batteryDialog(this);
     battery_dialog->hide();
-    connect(battery_dialog,&batteryDialog::batteryChanged,this,&MainWindow::onBatteryChanged);
+    connect(battery_dialog,&batteryDialog::batteryChanged,this,&MainWindow::onBatteryValueChanged);
     connect(battery_dialog,&batteryDialog::removeBattery,this,&MainWindow::onRemoveBattery);
     connect(battery_dialog,&batteryDialog::batteryNameChanged,this,&MainWindow::onBatteryNameChanged);
     connect(battery_dialog,&batteryDialog::newBattery,this,&MainWindow::onNewBattery);
 
     quotation_dialog = new quotationDialog(this);
     quotation_dialog->hide();
+    connect(quotation_dialog,&quotationDialog::selected, this, &MainWindow::onBatterySelected);
+    connect(quotation_dialog,&quotationDialog::calculator, this, &MainWindow::onTemporaryCalculator);
+    connect(quotation_dialog,&quotationDialog::confirmed,this,&MainWindow::onCostChangeConfirmed);
 
     init();
     //load quotation model
+    quo.setMetalPrice(readMetalPriceFromLocal());
 }
 
 MainWindow::~MainWindow()
@@ -81,6 +85,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
         }
     }
 
+    writeLog("/n");
     logFile.close();
 
     event->accept();
@@ -102,6 +107,9 @@ void MainWindow::init()
 
     //check quotation model directory
     if (!dir.exists("bin/quotation_model")) dir.mkpath("bin/quotation_model");
+
+    //check cost directory
+    if (!dir.exists("bin/recoveryCost")) dir.mkpath("bin/recoveryCost");
 
     readLocalTransaction();
     sortBoxChanged(ui->sort_box->currentText());
@@ -428,12 +436,47 @@ void MainWindow::onManageBatteryTypeFrame()
 
 void MainWindow::onUpdateQuotationFrame()
 {
+    quotation_dialog->clearListWidget();
     quotation_dialog->show();
+
+    QList<QString> list = quo.readAllBatteryType();
+    for(auto type : list)
+    {
+        quotation_dialog->addItemToListWidget(type);
+    }
 }
 
-void MainWindow::onBatteryChanged(QString key, batteryMaterialConcentration* value)
+void MainWindow::onBatterySelected(QString key)
 {
-    quo.batteryChangedHandler(key,value);
+    quotation_dialog->setRecoveryCost(quo.fetchRecoveryCostByKey(key));
+}
+
+void MainWindow::onTemporaryCalculator(QString type, double energyDensity, double weight, double SOH, recoveryCost cost)
+ {
+     quo.toogleTemporaryCostCalculator();
+
+     quo.setTemporaryCost(cost);
+     double finalPrice = quo.quotationCaculator(type,energyDensity,weight,SOH);
+     quotation_dialog->setFinalPrice(finalPrice);
+
+     quo.toogleTemporaryCostCalculator();
+ }
+
+void MainWindow::onCostChangeConfirmed(QString key, recoveryCost value)
+{
+    quo.changeRecoveryCostValue(key, value);
+    if(quo.saveRecoveryCostToLocal(key,value))
+        addMsgToMsgServer(key+"的报价参数修改成功!");
+    else
+    {
+        addMsgToMsgServer(key+"的报价参数修改失败!");
+        return;
+    }
+}
+
+void MainWindow::onBatteryValueChanged(QString key, batteryMaterialConcentration* value)
+{
+    quo.changeBatteryValue(key,value);
     quo.saveBatteryToLocal(key,value);
     addMsgToMsgServer(key + "信息更改成功");
 }
@@ -589,20 +632,19 @@ QString MainWindow::getCurrentDateTime()
 //    file.close();
 //}
 
-//quotation MainWindow::readQuotationModel()
+//void MainWindow::readQuotationModel()
 //{
-//    quotation data;
 //    QFile file("bin/quotation_model/quotation.dat");
 //    if(!file.open(QIODevice::ReadOnly))
 //    {
 //        addMsgToMsgServer("无法读取核心报价模块!");
-//        return data;
+//        return;
 //    }
 //    QDataStream in(&file);
 //    in.setVersion(QDataStream::Qt_5_14);
-//    in >> data;
+//    in >> quo;
 //    file.close();
-//    return data;
+//    return;
 //}
 
 //client-server function

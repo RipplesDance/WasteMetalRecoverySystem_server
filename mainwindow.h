@@ -65,8 +65,8 @@ public:
     void writeLog(QString msg);
     void messageFromClient(QTcpSocket* socket);
     void removeZombie(clientInfo* data);
-    void saveQuotationToLocal(quotation data);
-    quotation readQuotationModel();
+//    void saveQuotationToLocal(quotation data);
+//    void readQuotationModel();
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -84,12 +84,14 @@ public slots:
     void updateMetalPrice(metalPrice data);
     void heartBeatDetection();
     void heartBeatResult();
-    void onBatteryChanged(QString key, batteryMaterialConcentration* value);
+    void onBatteryValueChanged(QString key, batteryMaterialConcentration* value);
 //    void onRecoveryCostChanged(QString key, recoveryCost data);
     void onRemoveBattery(QString key);
     void onBatteryNameChanged(QString newKey, QString oldKey);
     void onNewBattery(QString key, batteryMaterialConcentration* value);
-
+    void onBatterySelected(QString key);
+    void onTemporaryCalculator(QString type, double energyDensity, double weight, double SOH, recoveryCost cost);
+    void onCostChangeConfirmed(QString key, recoveryCost value);
 
 private:
     Ui::MainWindow *ui;
