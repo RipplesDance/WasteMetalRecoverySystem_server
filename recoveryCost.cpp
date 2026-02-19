@@ -12,6 +12,8 @@ recoveryCost::recoveryCost()
     this->NiSo4_transitionRatio = 0;
     this->CoSo4_transitionRatio = 0;
     this->MnSo4_transitionRatio = 0;
+
+    sequence = 0;
 }
 recoveryCost::~recoveryCost(){}
 
@@ -37,14 +39,14 @@ void recoveryCost::setProperty(double unitPrice_80, double unitPrice_90,
 QDataStream &operator<<(QDataStream &out, const recoveryCost &data)
 {
     out<<data.unitPrice_80<<data.unitPrice_90<<data.price_per_kilo<<data.profit << data.LCE_transitionRatio
-      << data.CoSo4_transitionRatio << data.NiSo4_transitionRatio << data.MnSo4_transitionRatio;
+      << data.CoSo4_transitionRatio << data.NiSo4_transitionRatio << data.MnSo4_transitionRatio << data.sequence;
     return out;
 }
 
 QDataStream &operator>>(QDataStream &in, recoveryCost &data)
 {
     in >>data.unitPrice_80>>data.unitPrice_90>>data.price_per_kilo>>data.profit>> data.LCE_transitionRatio
-       >> data.CoSo4_transitionRatio >> data.NiSo4_transitionRatio >> data.MnSo4_transitionRatio;
+       >> data.CoSo4_transitionRatio >> data.NiSo4_transitionRatio >> data.MnSo4_transitionRatio >> data.sequence;
     return in;
 }
 

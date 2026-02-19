@@ -33,7 +33,10 @@ enum {
     TRANSACTION_STATUS = 2,
     METAL_PRICE = 3,
     QUOTATION_DATA = 4,
-    HEART_BEAT = 5
+    HEART_BEAT = 5,
+    BATTERY_REMOVED = 6,
+    BATTERY_ADDED = 7,
+    MESSAGE = 8
 };
 
 QT_BEGIN_NAMESPACE
@@ -52,21 +55,19 @@ public:
     void saveTransactionToLocal(transaction data);
     void sendMsgToSocket(QTcpSocket* socket, int msg_type, transaction data);
     void sendMsgToSocket(QTcpSocket* socket, int msg_type, metalPrice data);
+    void sendMsgToSocket(QTcpSocket* socket, int msg_type,QString battery, batteryMaterialConcentration materialConcentration, recoveryCost cost);
+    void sendMsgToSocket(QTcpSocket* socket, int msg_type, QString msg);
     void sendMsgToSocket(QTcpSocket* socket, int msg_type);
     void updateLabel();
     void readLocalTransaction();
     void updateTransactionListWidget();
     QTcpSocket* fetchSocketFromUuid(QString uuid);
     void TransactionHandled(transaction data, bool isAccept);
-    metalPrice readMetalPriceFromLocal();
-    void saveMetalPriceToLocal(metalPrice data);
     QString getCurrentDateTime();
     void addMsgToMsgServer(QString str);
     void writeLog(QString msg);
     void messageFromClient(QTcpSocket* socket);
     void removeZombie(clientInfo* data);
-//    void saveQuotationToLocal(quotation data);
-//    void readQuotationModel();
 
 protected:
     void closeEvent(QCloseEvent *event) override;

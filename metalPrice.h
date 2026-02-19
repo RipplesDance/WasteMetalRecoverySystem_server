@@ -20,6 +20,7 @@ public:
     double niPrice;
     double cuPrice;
     bool isUpdated;
+
 };
 
 #endif // METALPRICE_H

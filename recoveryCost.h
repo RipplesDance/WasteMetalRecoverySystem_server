@@ -30,6 +30,9 @@ public:
     double NiSo4_transitionRatio;
     double CoSo4_transitionRatio;
     double MnSo4_transitionRatio;
+
+    //sequence
+    qint64 sequence;
 };
 
 #endif // RECOVERYCOST_H

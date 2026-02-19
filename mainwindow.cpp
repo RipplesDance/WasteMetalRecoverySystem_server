@@ -57,8 +57,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(quotation_dialog,&quotationDialog::confirmed,this,&MainWindow::onCostChangeConfirmed);
 
     init();
-    //load quotation model
-    quo.setMetalPrice(readMetalPriceFromLocal());
 }
 
 MainWindow::~MainWindow()
@@ -85,7 +83,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
         }
     }
 
-    writeLog("/n");
+    writeLog("");
     logFile.close();
 
     event->accept();
@@ -104,12 +102,6 @@ void MainWindow::init()
         if (dir.mkpath("bin/logs")) {
             qDebug() << "Dir created";
         }
-
-    //check quotation model directory
-    if (!dir.exists("bin/quotation_model")) dir.mkpath("bin/quotation_model");
-
-    //check cost directory
-    if (!dir.exists("bin/recoveryCost")) dir.mkpath("bin/recoveryCost");
 
     readLocalTransaction();
     sortBoxChanged(ui->sort_box->currentText());
@@ -355,13 +347,58 @@ void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type, metalPrice da
             socket->abort();
 }
 
+void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type,QString battery, batteryMaterialConcentration materialConcentration, recoveryCost cost)
+{
+    if (!socket || socket->state() != QAbstractSocket::ConnectedState) return;
+
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(QDataStream::Qt_5_14);
+
+        out<<msg_type;
+
+        out<<battery << materialConcentration << cost;
+
+
+        if(socket->write(block) == -1)
+            socket->abort();
+}
+
+void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type, QString msg)
+{
+    if (!socket || socket->state() != QAbstractSocket::ConnectedState) return;
+
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(QDataStream::Qt_5_14);
+
+        out<<msg_type;
+        out<<msg;
+
+        if(socket->write(block) == -1)
+            socket->abort();
+}
+
 void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type)
 {
+    if (!socket || socket->state() != QAbstractSocket::ConnectedState) return;
+
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_5_14);
 
     out<<msg_type;
+    if(msg_type == HANDSHAKE)
+    {
+        QList<batteryMaterialConcentration*> materialConcentration_list = quo.readAllBatteryMaterialConcentration();
+        QList<batteryMaterialConcentration> value_list;
+        for(auto value : materialConcentration_list)
+            if(value)
+                value_list.append(*value);
+
+        out <<quo.getMetalPrice()<<quo.readAllBatteryType()
+          << value_list <<quo.readAllRecoveryCost();
+    }
 
     if(socket->write(block) == -1)
         socket->abort();
@@ -404,7 +441,7 @@ void MainWindow::saveTransactionToLocal(transaction data)
 void MainWindow::onMetalPriceFrame()
 {
     metalPrice_dialog->show();
-    metalPrice_dialog->setMetalPrice(readMetalPriceFromLocal());
+    metalPrice_dialog->setMetalPrice(quo.getMetalPrice());
 }
 
 void MainWindow::onOnlineClientsFrame()
@@ -465,7 +502,8 @@ void MainWindow::onTemporaryCalculator(QString type, double energyDensity, doubl
 
 void MainWindow::onCostChangeConfirmed(QString key, recoveryCost value)
 {
-    quo.changeRecoveryCostValue(key, value);
+    value.sequence++;
+
     if(quo.saveRecoveryCostToLocal(key,value))
         addMsgToMsgServer(key+"的报价参数修改成功!");
     else
@@ -473,10 +511,24 @@ void MainWindow::onCostChangeConfirmed(QString key, recoveryCost value)
         addMsgToMsgServer(key+"的报价参数修改失败!");
         return;
     }
+    quo.changeRecoveryCostValue(key, value);
+
+    //sync client data
+    batteryMaterialConcentration materialConcentration = *(quo.fetchMaterialConcentrationByKey(key));
+    QMap<QTcpSocket*, clientInfo*>::iterator it;
+
+    for (it = clientMap.begin(); it != clientMap.end(); ++it) {
+        QTcpSocket *socket = it.key();
+        sendMsgToSocket(socket,QUOTATION_DATA,key,materialConcentration,value);
+    }
+
+    addMsgToMsgServer("已向所有客户端发送最新报价参数,金属含量数据");
 }
 
 void MainWindow::onBatteryValueChanged(QString key, batteryMaterialConcentration* value)
 {
+    value->sequence++;
+
     quo.changeBatteryValue(key,value);
     quo.saveBatteryToLocal(key,value);
     addMsgToMsgServer(key + "信息更改成功");
@@ -484,8 +536,10 @@ void MainWindow::onBatteryValueChanged(QString key, batteryMaterialConcentration
 
 void MainWindow::onBatteryNameChanged(QString newKey, QString oldKey)
 {
-    if(!quo.changeBatteryNameKey(newKey,oldKey))
+    if(!quo.changeBatteryNameKey(newKey,oldKey)){
         addMsgToMsgServer("电池命名修改失败！电池材料已存在或没有没有旧的电池材料信息");
+        return;
+    }
     else
         addMsgToMsgServer("电池材料重命名成功！");
     quo.changeRecoveryCostKey(newKey,oldKey);
@@ -505,6 +559,17 @@ void MainWindow::onRemoveBattery(QString key)
     quo.removeBatteryByName(key);
     quo.removeRecoveryCostByName(key);
     quo.removeRecoveryCostFromLocal(key);
+    quo.changeLastUpdatedTime();
+
+    //sync client data
+    QMap<QTcpSocket*, clientInfo*>::iterator it;
+
+    for (it = clientMap.begin(); it != clientMap.end(); ++it) {
+        QTcpSocket *socket = it.key();
+        sendMsgToSocket(socket,BATTERY_REMOVED, key);
+    }
+
+    addMsgToMsgServer("已向所有客户端发送删除"+key+"指令");
 }
 
 void MainWindow::onNewBattery(QString key, batteryMaterialConcentration* value)
@@ -522,6 +587,17 @@ void MainWindow::onNewBattery(QString key, batteryMaterialConcentration* value)
     quo.addRecoveryCost(key, cost);
     quo.saveRecoveryCostToLocal(key, cost);
     quo.saveBatteryToLocal(key,value);
+    quo.changeLastUpdatedTime();
+
+    //sync client data
+    batteryMaterialConcentration materialConcentration = *(quo.fetchMaterialConcentrationByKey(key));
+    QMap<QTcpSocket*, clientInfo*>::iterator it;
+    for (it = clientMap.begin(); it != clientMap.end(); ++it) {
+        QTcpSocket *socket = it.key();
+        sendMsgToSocket(socket,BATTERY_ADDED, key,materialConcentration,cost);
+    }
+
+    addMsgToMsgServer("已向所有客户端发送添加"+key+"指令");
 
 }
 
@@ -567,8 +643,8 @@ void MainWindow::removeZombie(clientInfo* data)
 
 void MainWindow::updateMetalPrice(metalPrice data)
 {
-    saveMetalPriceToLocal(data);
-
+    quo.saveMetalPriceToLocal(data);
+    quo.readMetalPriceFromLocal();
     QMap<QTcpSocket*, clientInfo*>::iterator it;
 
     for (it = clientMap.begin(); it != clientMap.end(); ++it) {
@@ -580,74 +656,11 @@ void MainWindow::updateMetalPrice(metalPrice data)
     metalPrice_dialog->hide();
 }
 
-metalPrice MainWindow::readMetalPriceFromLocal()
-{
-    metalPrice data;
-
-    QFile file("bin/metalPrice_CNY.dat");
-    if(!file.open(QIODevice::ReadOnly))
-    {
-        addMsgToMsgServer("无法读取本地金属价格信息!");
-        return data;
-    }
-
-    QDataStream in(&file);
-    in.setVersion(QDataStream::Qt_5_14);
-    in >> data;
-    return data;
-}
-
-void MainWindow::saveMetalPriceToLocal(metalPrice data)
-{
-
-    QFile file("bin/metalPrice_CNY.dat");
-    if(!file.open(QIODevice::WriteOnly))
-    {
-        addMsgToMsgServer("无法保存本地金属价格信息!");
-        return;
-    }
-    QDataStream out(&file);
-    out.setVersion(QDataStream::Qt_5_14);
-    out << data;
-}
-
 QString MainWindow::getCurrentDateTime()
 {
     QDateTime time = QDateTime::currentDateTime();
     return time.toString("yyyy-MM-dd hh-mm");
 }
-
-//void MainWindow::saveQuotationToLocal(quotation data)
-//{
-//    QFile file("bin/quotation_model/quotation.dat");
-//    if(!file.open(QIODevice::WriteOnly))
-//    {
-//        addMsgToMsgServer("无法保存核心报价模块!");
-//        return;
-//    }
-//    QDataStream out(&file);
-//    out.setVersion(QDataStream::Qt_5_14);
-//    out << data;
-
-//    data.saveAllBatteryToLocal();
-
-//    file.close();
-//}
-
-//void MainWindow::readQuotationModel()
-//{
-//    QFile file("bin/quotation_model/quotation.dat");
-//    if(!file.open(QIODevice::ReadOnly))
-//    {
-//        addMsgToMsgServer("无法读取核心报价模块!");
-//        return;
-//    }
-//    QDataStream in(&file);
-//    in.setVersion(QDataStream::Qt_5_14);
-//    in >> quo;
-//    file.close();
-//    return;
-//}
 
 //client-server function
 void MainWindow::clientConnected()
@@ -734,11 +747,8 @@ void MainWindow::messageFromClient(QTcpSocket* socket)
         clientMap.insert(socket, client);
 
         addMsgToMsgServer(QString(uuid + "已连接"));
-
-        //convey metalPrice
-        metalPrice data = readMetalPriceFromLocal();
-        if(data.isUpdated)
-            sendMsgToSocket(socket,METAL_PRICE,data);
+        //sent initial package
+        sendMsgToSocket(socket,HANDSHAKE);
     }
     else if(msg_type == NEW_TRANSACTION)//  NEW_TRANSACTION
     {

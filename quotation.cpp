@@ -4,13 +4,9 @@ quotation::quotation()
 {
     init();
 
-
-    readAllBatteryFromLocal();
-    readAllRecoveryCostFromLocal();
-
-    batteryMaterialConcentration* LCO = new batteryMaterialConcentration(0.071,0.602,0,0,0.1, 0.93, 0.35);
-    LCO->setRecycleRatio(0.85, 0.95,0,0,0.98,0.95,0.95);
-    batteryMap.insert("钴酸锂电池", LCO);
+//    batteryMaterialConcentration* LCO = new batteryMaterialConcentration(0.071,0.602,0,0,0.1, 0.93, 0.35);
+//    LCO->setRecycleRatio(0.85, 0.95,0,0,0.98,0.95,0.95);
+//    batteryMap.insert("钴酸锂电池", LCO);
 
 //    recoveryCost cost;
 //    cost.setProperty(0.3, 0.35,45,0.2);
@@ -43,6 +39,19 @@ void quotation::init()
     Mn_to_MnSo4 = 169.02/ 54.94;// 1H₂O MnSO₄·H₂O = 169.02, Mn = 54.94
 
     enableTemporaryCost = false;
+
+
+    //check quotation model directory
+    QDir dir;
+    //check cost directory
+    if (!dir.exists(recoveryCostPath)) dir.mkpath(recoveryCostPath);
+
+    //check battery directory
+    if (!dir.exists(batteryPath)) dir.mkpath(batteryPath);
+
+    readMetalPriceFromLocal();
+    readAllBatteryFromLocal();
+    readAllRecoveryCostFromLocal();
 }
 
 //other functions
@@ -107,8 +116,8 @@ bool quotation::removeRecoveryCostByName(QString key)
 
 bool quotation::renameLocalBattery(QString origin, QString name)
 {
-    QString oldPath = "bin/quotation_model/" + origin.toUtf8().toBase64() + ".dat";
-    QString newPath = "bin/quotation_model/" + name.toUtf8().toBase64() + ".dat";
+    QString oldPath = batteryPath + "/" + origin.toUtf8().toBase64() + ".dat";
+    QString newPath = batteryPath + "/" + name.toUtf8().toBase64() + ".dat";
 
     if (!QFile::exists(oldPath))
         return false;
@@ -119,8 +128,8 @@ bool quotation::renameLocalBattery(QString origin, QString name)
 
 bool quotation::renameLocalRecoveryCost(QString origin, QString name)
 {
-    QString oldPath = "bin/recoveryCost/" + origin.toUtf8().toBase64() + ".dat";
-    QString newPath = "bin/recoveryCost/" + name.toUtf8().toBase64() + ".dat";
+    QString oldPath = recoveryCostPath + "/" + origin.toUtf8().toBase64() + ".dat";
+    QString newPath = recoveryCostPath + "/" + name.toUtf8().toBase64() + ".dat";
 
     if (!QFile::exists(oldPath))
         return false;
@@ -139,12 +148,17 @@ QList<batteryMaterialConcentration*> quotation::readAllBatteryMaterialConcentrat
     return batteryMap.values();
 }
 
+QList<recoveryCost> quotation::readAllRecoveryCost()
+{
+    return recoveryCostMap.values();
+}
+
 bool quotation::saveBatteryToLocal(QString key, batteryMaterialConcentration* data)
 {
     if (data == nullptr) return false;
     QString fileName =key.toUtf8().toBase64();
 
-    QFile file("bin/quotation_model/" + fileName + ".dat");
+    QFile file(batteryPath + "/" + fileName + ".dat");
     if(!file.open(QIODevice::WriteOnly))
     {
         qDebug()<<"无法打开文件"+fileName;
@@ -160,7 +174,7 @@ bool quotation::saveRecoveryCostToLocal(QString key, recoveryCost data)
 {
     QString fileName =key.toUtf8().toBase64();
 
-    QFile file("bin/recoveryCost/" + fileName + ".dat");
+    QFile file(recoveryCostPath + "/" + fileName + ".dat");
     if(!file.open(QIODevice::WriteOnly))
     {
         qDebug()<<"无法打开文件"+fileName;
@@ -176,7 +190,7 @@ bool quotation::removeBatteryFromLocal(QString key)
 {
     QString fileName =key.toUtf8().toBase64();
 
-    QString filePath = "bin/quotation_model/" + fileName + ".dat";
+    QString filePath = batteryPath + "/" + fileName + ".dat";
     QFile file(filePath);
     if(!QFile::exists(filePath))
     {
@@ -193,7 +207,7 @@ bool quotation::removeRecoveryCostFromLocal(QString key)
 {
     QString fileName =key.toUtf8().toBase64();
 
-    QString filePath = "bin/recoveryCost/" + fileName + ".dat";
+    QString filePath = recoveryCostPath + "/" + fileName + ".dat";
     QFile file(filePath);
     if(!QFile::exists(filePath))
     {
@@ -224,15 +238,12 @@ bool quotation::addRecoveryCost(QString key, recoveryCost data)
 
 void quotation::saveAllBatteryToLocal()
 {
-    QDir dir;
-    if (!dir.exists("bin/quotation_model")) dir.mkdir("bin/quotation_model");
-
     QMap<QString, batteryMaterialConcentration*>::iterator it = batteryMap.begin();
     while(it != batteryMap.end())
     {
         QString fileName =it.key().toUtf8().toBase64();
 
-        QFile file("bin/quotation_model/" + fileName + ".dat");
+        QFile file(batteryPath + "/" + fileName + ".dat");
         if(!file.open(QIODevice::WriteOnly))
         {
             qDebug()<<"无法打开文件保存batteryMaterialConcentration";
@@ -251,7 +262,7 @@ void quotation::readAllBatteryFromLocal()
     qDeleteAll(batteryMap);
     batteryMap.clear();
 
-    QDir dir("bin/quotation_model");
+    QDir dir(batteryPath);
     QStringList filters;
     filters << "*.dat";
     dir.setNameFilters(filters);
@@ -284,7 +295,7 @@ void quotation::readAllRecoveryCostFromLocal()
 {
     recoveryCostMap.clear();
 
-    QDir dir("bin/recoveryCost");
+    QDir dir(recoveryCostPath);
     QStringList filters;
     filters << "*.dat";
     dir.setNameFilters(filters);
@@ -313,14 +324,48 @@ void quotation::readAllRecoveryCostFromLocal()
     }
 }
 
+void quotation::saveMetalPriceToLocal(metalPrice data)
+{
+    QFile file("bin/quotation_model/metalPrice_CNY.dat");
+    if(!file.open(QIODevice::WriteOnly))
+    {
+        qDebug("无法保存本地金属价格信息!");
+        return;
+    }
+    QDataStream out(&file);
+    out.setVersion(QDataStream::Qt_5_14);
+    out << data;
+}
+
+void quotation::readMetalPriceFromLocal()
+{
+    QFile file("bin/quotation_model/metalPrice_CNY.dat");
+    if(!file.open(QIODevice::ReadOnly))
+    {
+        qDebug("无法读取本地金属价格信息!");
+        return;
+    }
+
+    QDataStream in(&file);
+    in.setVersion(QDataStream::Qt_5_14);
+    in >> metal_price;
+}
+
 void quotation::setMetalPrice(metalPrice data)
 {
     this->metal_price = data;
 }
 
+metalPrice quotation::getMetalPrice(){return metal_price;}
+
 recoveryCost quotation::fetchRecoveryCostByKey(QString key)
 {
     return recoveryCostMap.value(key);
+}
+
+batteryMaterialConcentration* quotation::fetchMaterialConcentrationByKey(QString key)
+{
+    return batteryMap.value(key);
 }
 
 //core model functions
@@ -339,6 +384,7 @@ double quotation::quotationCaculator(QString type, double energyDensity, double 
     {
         cost = this->cost;
     }
+//    qDebug()<<cost << metal_price << weight;
 
     if(SOH >= 0.8 && energyDensity > 0)
     {
