@@ -365,7 +365,9 @@ recoveryCost quotation::fetchRecoveryCostByKey(QString key)
 
 batteryMaterialConcentration* quotation::fetchMaterialConcentrationByKey(QString key)
 {
-    return batteryMap.value(key);
+    if(batteryMap.contains(key))
+        return batteryMap.value(key);
+    return nullptr;
 }
 
 //core model functions
