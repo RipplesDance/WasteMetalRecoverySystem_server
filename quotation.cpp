@@ -20,6 +20,8 @@ quotation::quotation()
 
 quotation:: ~quotation()
 {
+    qDeleteAll(batteryMap);
+    batteryMap.clear();
 }
 
 void quotation::toogleTemporaryCostCalculator()
@@ -206,7 +208,9 @@ bool quotation::removeRecoveryCostFromLocal(QString key)
 
 bool quotation::addBatteryType(QString key, batteryMaterialConcentration* data)
 {
-    if(batteryMap.contains(key)) return false;
+    if(!data) return false;
+    if(batteryMap.contains(key))
+        return false;
     batteryMap.insert(key, data);
     return true;
 }
@@ -335,8 +339,6 @@ double quotation::quotationCaculator(QString type, double energyDensity, double 
     {
         cost = this->cost;
     }
-    qDebug()<<cost << SOH << weight << energyDensity;
-    qDebug()<<metal_price;
 
     if(SOH >= 0.8 && energyDensity > 0)
     {

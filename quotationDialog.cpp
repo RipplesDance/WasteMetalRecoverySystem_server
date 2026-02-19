@@ -40,6 +40,7 @@ void quotationDialog::clearListWidget()
 
 void quotationDialog::confirmChange()
 {
+    if(!ui->batteryName_listWidget->currentItem()) return;
     if(ui->batteryName_listWidget->currentItem()->text().isEmpty())
         return;
     recoveryCost cost;

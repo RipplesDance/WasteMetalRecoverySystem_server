@@ -155,6 +155,7 @@ void MainWindow::writeLog(QString msg) {
 void MainWindow::selectedItem(QListWidgetItem *item)
 {
     if(!item) return;
+
     deal_dialog->show();
     QString filePath = item->data(Qt::UserRole).toString();
     transaction clickedData;
@@ -185,7 +186,7 @@ void MainWindow::selectedItem(QListWidgetItem *item)
     }
 
     disconnect(deal_dialog, &dealDialog::finished, nullptr, nullptr);
-    connect(deal_dialog, &dealDialog::finished,[=](bool isAccept)
+    connect(deal_dialog, &dealDialog::finished,this, [=](bool isAccept)
     {
         TransactionHandled(clickedData, isAccept);
         deal_dialog->hide();
@@ -512,6 +513,7 @@ void MainWindow::onNewBattery(QString key, batteryMaterialConcentration* value)
         addMsgToMsgServer("电池材料添加成功");
     else
     {
+        delete value;
         addMsgToMsgServer("电池材料添加失败");
         return;
     }
@@ -699,7 +701,7 @@ void MainWindow::messageFromClient(QTcpSocket* socket)
     int msg_type;
     in >> msg_type;
 
-    if(msg_type == HANDSHAKE)
+    if(msg_type == HANDSHAKE) //  HANDSHAKE
     {
         QString uuid;
         in >> uuid;
@@ -738,7 +740,7 @@ void MainWindow::messageFromClient(QTcpSocket* socket)
         if(data.isUpdated)
             sendMsgToSocket(socket,METAL_PRICE,data);
     }
-    else if(msg_type == NEW_TRANSACTION)
+    else if(msg_type == NEW_TRANSACTION)//  NEW_TRANSACTION
     {
         in >> data;
         if(!in.commitTransaction())
@@ -748,7 +750,7 @@ void MainWindow::messageFromClient(QTcpSocket* socket)
 
         addMsgToMsgServer(QString("收到了一份订单："+ data.getId()));
     }
-    else if(msg_type == HEART_BEAT)
+    else if(msg_type == HEART_BEAT)//       HEART_BEAT
     {
         clientInfo* client = clientMap.value(socket);
         client->heartBeat();

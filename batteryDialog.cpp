@@ -21,7 +21,6 @@ void batteryDialog::init()
 
 void batteryDialog::handleItemChanged(QTreeWidgetItem *item, int column)
 {
-    qDebug()<<"item changed";
     if(!itemMap.contains(item))return;
     QString oldKey = itemMap.value(item);
     QString newKey = item->text(0);
@@ -161,7 +160,8 @@ void batteryDialog::addNewItem() {
     ui->batteryInfo_treeWidget->addTopLevelItem(newItem);
     ui->batteryInfo_treeWidget->editItem(newItem, 0); // edit immediately
     ui->batteryInfo_treeWidget->blockSignals(false);
-    emit newBattery("新电池材料", new batteryMaterialConcentration);
+    batteryMaterialConcentration* data = new batteryMaterialConcentration;
+    emit newBattery("新电池材料", data);
 }
 
 void batteryDialog::deleteSelectedItem(QTreeWidgetItem *item) {
