@@ -21,6 +21,7 @@ void batteryDialog::init()
 
 void batteryDialog::handleItemChanged(QTreeWidgetItem *item, int column)
 {
+    qDebug()<<"batteryDialog:item changed";
     if(!itemMap.contains(item))return;
     QString oldKey = itemMap.value(item);
     QString newKey = item->text(0);
@@ -173,9 +174,8 @@ void batteryDialog::deleteSelectedItem(QTreeWidgetItem *item) {
     if (result == QMessageBox::Yes) {
 
         itemMap.remove(item);
-
-        emit removeBattery(key);
         delete item;
+        emit removeBattery(key);
     }
 }
 

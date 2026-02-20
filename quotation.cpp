@@ -64,13 +64,17 @@ void quotation::changeBatteryValue(QString key, batteryMaterialConcentration* va
         batteryMaterialConcentration *oldData = batteryMap.take(key);
         if(oldData != value)
             delete oldData;
+        batteryMap.insert(key,value);
     }
-    batteryMap.insert(key,value);
+    else
+        delete value;
+
 }
 
 void quotation::changeRecoveryCostValue(QString key, recoveryCost value)
 {
-    recoveryCostMap.insert(key,value);
+    if(recoveryCostMap.contains(key))
+        recoveryCostMap.insert(key,value);
 }
 
 bool quotation::changeBatteryNameKey(QString newKey, QString oldKey)
@@ -89,8 +93,8 @@ bool quotation::changeRecoveryCostKey(QString newKey, QString oldKey)
     if(!recoveryCostMap.contains(oldKey)) return false;
     if(recoveryCostMap.contains(newKey)) return false;
 
-    recoveryCost cost = recoveryCostMap.take(newKey);
-    recoveryCostMap.insert(newKey, cost);
+    recoveryCostMap.insert(newKey, fetchRecoveryCostByKey(oldKey));
+    recoveryCostMap.remove(oldKey);
 
     return  true;
 }
@@ -101,7 +105,6 @@ bool quotation::removeBatteryByName(QString key)
         return false;
     }
     delete batteryMap.take(key); //delete original value
-    batteryMap.remove(key);
     return true;
 }
 
@@ -111,6 +114,7 @@ bool quotation::removeRecoveryCostByName(QString key)
         return false;
     }
     recoveryCostMap.remove(key);
+    qDebug()<<recoveryCostMap.values().length();
     return true;
 }
 
@@ -175,6 +179,9 @@ bool quotation::saveRecoveryCostToLocal(QString key, recoveryCost data)
     QString fileName =key.toUtf8().toBase64();
 
     QFile file(recoveryCostPath + "/" + fileName + ".dat");
+
+//    qDebug()<<recoveryCostPath + "/" + fileName + ".dat";
+
     if(!file.open(QIODevice::WriteOnly))
     {
         qDebug()<<"无法打开文件"+fileName;

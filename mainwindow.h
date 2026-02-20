@@ -35,7 +35,7 @@ enum {
     QUOTATION_DATA = 4,
     HEART_BEAT = 5,
     BATTERY_REMOVED = 6,
-    BATTERY_ADDED = 7,
+    BATTERY_CHANGED = 7,
     MESSAGE = 8
 };
 
@@ -56,6 +56,7 @@ public:
     void sendMsgToSocket(QTcpSocket* socket, int msg_type, transaction data);
     void sendMsgToSocket(QTcpSocket* socket, int msg_type, metalPrice data);
     void sendMsgToSocket(QTcpSocket* socket, int msg_type,QString battery, batteryMaterialConcentration materialConcentration, recoveryCost cost);
+    void sendMsgToSocket(QTcpSocket* socket, int msg_type, QString oldKey, QString newKey);
     void sendMsgToSocket(QTcpSocket* socket, int msg_type, QString msg);
     void sendMsgToSocket(QTcpSocket* socket, int msg_type);
     void updateLabel();

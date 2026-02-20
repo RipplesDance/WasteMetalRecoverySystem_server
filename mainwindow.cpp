@@ -364,6 +364,22 @@ void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type,QString batter
             socket->abort();
 }
 
+void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type, QString oldKey, QString newKey)
+{
+    if (!socket || socket->state() != QAbstractSocket::ConnectedState) return;
+
+        QByteArray block;
+        QDataStream out(&block, QIODevice::WriteOnly);
+        out.setVersion(QDataStream::Qt_5_14);
+
+        out<<msg_type;
+        if(msg_type == BATTERY_CHANGED)
+            out<<oldKey << newKey;
+
+        if(socket->write(block) == -1)
+            socket->abort();
+}
+
 void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type, QString msg)
 {
     if (!socket || socket->state() != QAbstractSocket::ConnectedState) return;
@@ -395,7 +411,12 @@ void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type)
         for(auto value : materialConcentration_list)
             if(value)
                 value_list.append(*value);
-
+        qDebug()<<materialConcentration_list.length()<<value_list.length() << quo.readAllRecoveryCost().length();
+        if(value_list.length() != quo.readAllRecoveryCost().length())
+        {
+            addMsgToMsgServer("无法发送初始包，长度不匹配");
+            return;
+        }
         out <<quo.getMetalPrice()<<quo.readAllBatteryType()
           << value_list <<quo.readAllRecoveryCost();
     }
@@ -475,6 +496,7 @@ void MainWindow::onManageBatteryTypeFrame()
 void MainWindow::onUpdateQuotationFrame()
 {
     quotation_dialog->clearListWidget();
+    quotation_dialog->reset();
     quotation_dialog->show();
 
     QList<QString> list = quo.readAllBatteryType();
@@ -502,8 +524,7 @@ void MainWindow::onTemporaryCalculator(QString type, double energyDensity, doubl
 
 void MainWindow::onCostChangeConfirmed(QString key, recoveryCost value)
 {
-    value.sequence++;
-
+    value.isUpdated = true;
     if(quo.saveRecoveryCostToLocal(key,value))
         addMsgToMsgServer(key+"的报价参数修改成功!");
     else
@@ -522,12 +543,11 @@ void MainWindow::onCostChangeConfirmed(QString key, recoveryCost value)
         sendMsgToSocket(socket,QUOTATION_DATA,key,materialConcentration,value);
     }
 
-    addMsgToMsgServer("已向所有客户端发送最新报价参数,金属含量数据");
+    addMsgToMsgServer("已向所有客户端发送"+key+"最新报价参数,金属含量数据");
 }
 
 void MainWindow::onBatteryValueChanged(QString key, batteryMaterialConcentration* value)
 {
-    value->sequence++;
 
     quo.changeBatteryValue(key,value);
     quo.saveBatteryToLocal(key,value);
@@ -545,6 +565,15 @@ void MainWindow::onBatteryNameChanged(QString newKey, QString oldKey)
     quo.changeRecoveryCostKey(newKey,oldKey);
     quo.renameLocalBattery(oldKey,newKey);
     quo.renameLocalRecoveryCost(oldKey,newKey);
+
+    //sync client data
+    QMap<QTcpSocket*, clientInfo*>::iterator it;
+    for (it = clientMap.begin(); it != clientMap.end(); ++it) {
+        QTcpSocket *socket = it.key();
+        sendMsgToSocket(socket,BATTERY_CHANGED, oldKey, newKey);
+    }
+
+    addMsgToMsgServer("已向所有客户端发送重命名"+oldKey+"为"+newKey+"的指令");
 }
 
 void MainWindow::onRemoveBattery(QString key)
@@ -558,8 +587,8 @@ void MainWindow::onRemoveBattery(QString key)
     }
     quo.removeBatteryByName(key);
     quo.removeRecoveryCostByName(key);
+
     quo.removeRecoveryCostFromLocal(key);
-    quo.changeLastUpdatedTime();
 
     //sync client data
     QMap<QTcpSocket*, clientInfo*>::iterator it;
@@ -568,6 +597,8 @@ void MainWindow::onRemoveBattery(QString key)
         QTcpSocket *socket = it.key();
         sendMsgToSocket(socket,BATTERY_REMOVED, key);
     }
+
+    qDebug()<<quo.readAllRecoveryCost().length();
 
     addMsgToMsgServer("已向所有客户端发送删除"+key+"指令");
 }
@@ -587,18 +618,15 @@ void MainWindow::onNewBattery(QString key, batteryMaterialConcentration* value)
     quo.addRecoveryCost(key, cost);
     quo.saveRecoveryCostToLocal(key, cost);
     quo.saveBatteryToLocal(key,value);
-    quo.changeLastUpdatedTime();
 
     //sync client data
-    batteryMaterialConcentration materialConcentration = *(quo.fetchMaterialConcentrationByKey(key));
     QMap<QTcpSocket*, clientInfo*>::iterator it;
     for (it = clientMap.begin(); it != clientMap.end(); ++it) {
         QTcpSocket *socket = it.key();
-        sendMsgToSocket(socket,BATTERY_ADDED, key,materialConcentration,cost);
+        sendMsgToSocket(socket,QUOTATION_DATA,key,*value,cost);
     }
 
-    addMsgToMsgServer("已向所有客户端发送添加"+key+"指令");
-
+    addMsgToMsgServer("已向所有客户端发送添加"+key+"的指令");
 }
 
 void MainWindow::heartBeatResult()
