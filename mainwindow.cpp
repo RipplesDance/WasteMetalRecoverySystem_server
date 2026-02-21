@@ -105,7 +105,6 @@ void MainWindow::init()
 
     readLocalTransaction();
     sortBoxChanged(ui->sort_box->currentText());
-    updateTransactionListWidget();
     updateLabel();
 
     logFilePath = QString("bin/logs/%1.log").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd"));
@@ -187,7 +186,6 @@ void MainWindow::selectedItem(QListWidgetItem *item)
         //refresh widget to show updated file info
         readLocalTransaction();
         sortBoxChanged(ui->sort_box->currentText());
-        updateTransactionListWidget();
         updateLabel();
     });
 
@@ -210,8 +208,8 @@ void MainWindow::TransactionHandled(transaction data, bool isAccept)
     saveTransactionToLocal(data);
     readLocalTransaction();
     sortBoxChanged(ui->sort_box->currentText());
-    updateTransactionListWidget();
     updateLabel();
+    addMsgToMsgServer(data.getId() + "订单已处理");
 }
 
 void MainWindow::sortBoxChanged(QString way)
@@ -250,6 +248,7 @@ void MainWindow::sortBoxChanged(QString way)
         std::sort(finishedFileVector.begin(), finishedFileVector.end(),
                   [=](transaction &a, transaction &b){return a.selectPrice() < b.selectPrice();});
     }
+    updateTransactionListWidget();
 }
 
 void MainWindow::updateTransactionListWidget()
@@ -728,7 +727,6 @@ void MainWindow::newTransactionRecived(transaction data)
     saveTransactionToLocal(data);
     readLocalTransaction();
     sortBoxChanged(ui->sort_box->currentText());
-    updateTransactionListWidget();
     updateLabel();
 }
 
