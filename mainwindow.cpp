@@ -57,6 +57,29 @@ MainWindow::MainWindow(QWidget *parent)
     connect(quotation_dialog,&quotationDialog::confirmed,this,&MainWindow::onCostChangeConfirmed);
 
     init();
+
+    //set style
+    ui->pendingTransaction_listWidget->setSpacing(10);
+     ui->finishedTransaction_listWidget->setSpacing(10);
+
+    ui->pendingTransaction_listWidget->setStyleSheet(
+        "QListWidget {"
+        "    outline: none;"
+        "}"
+
+        "QListWidget::item {"
+        "    padding: 10px;"
+        "}"
+    );
+    ui->finishedTransaction_listWidget->setStyleSheet(
+        "QListWidget {"
+        "    outline: none;"
+        "}"
+
+        "QListWidget::item {"
+        "    padding: 10px;"
+        "}"
+    );
 }
 
 MainWindow::~MainWindow()
@@ -260,6 +283,17 @@ void MainWindow::updateTransactionListWidget()
                                                     data.selectType() + "---" +
                                                     QString::number(data.selectPrice()));
         item->setData(Qt::UserRole, data.selectFilePath());
+
+        if(data.selectResultTime().isValid())
+        {
+            if(data.checkStatus())
+                item->setBackground(QColor(200, 255, 200));
+            else
+                item->setBackground(QColor(255, 200, 200));
+        }
+        else
+            item->setBackground((QColor(200, 200, 255)));
+
         ui->pendingTransaction_listWidget->addItem(item);
     }
     
@@ -270,6 +304,17 @@ void MainWindow::updateTransactionListWidget()
                                                     data.selectType() + "---" +
                                                     QString::number(data.selectPrice()));
         item->setData(Qt::UserRole, data.selectFilePath());
+
+        if(data.selectResultTime().isValid())
+        {
+            if(data.checkStatus())
+                item->setBackground(QColor(200, 255, 200));
+            else
+                item->setBackground(QColor(255, 200, 200));
+        }
+        else
+            item->setBackground((QColor(200, 200, 255)));
+
         ui->finishedTransaction_listWidget->addItem(item);
     }
 }
