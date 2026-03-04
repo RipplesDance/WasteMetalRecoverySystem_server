@@ -94,6 +94,8 @@ public slots:
     void onBatterySelected(QString key);
     void onTemporaryCalculator(QString type, double energyDensity, double weight, double SOH, recoveryCost cost);
     void onCostChangeConfirmed(QString key, recoveryCost value);
+    void showPendingContextMenu(const QPoint &pos);
+    void showFinishedContextMenu(const QPoint &pos);
 
 private:
     Ui::MainWindow *ui;

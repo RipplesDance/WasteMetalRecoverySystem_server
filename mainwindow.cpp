@@ -31,6 +31,14 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->manageType_frame, &interactableFrame::clicked, this, &MainWindow::onManageBatteryTypeFrame);
     connect(ui->updateQuotation_frame,&interactableFrame::clicked,this,&MainWindow::onUpdateQuotationFrame);
 
+    ui->pendingTransaction_listWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->pendingTransaction_listWidget, &QListWidget::customContextMenuRequested,
+            this, &MainWindow::showPendingContextMenu);
+
+    ui->finishedTransaction_listWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->finishedTransaction_listWidget, &QListWidget::customContextMenuRequested,
+            this, &MainWindow::showFinishedContextMenu);
+
     //dialog init
     deal_dialog = new dealDialog(this);
     deal_dialog->hide();
@@ -732,6 +740,80 @@ QString MainWindow::getCurrentDateTime()
 {
     QDateTime time = QDateTime::currentDateTime();
     return time.toString("yyyy-MM-dd hh-mm");
+}
+
+void MainWindow::showPendingContextMenu(const QPoint &pos)
+{
+    QListWidget *listWidget = ui->pendingTransaction_listWidget;
+    QListWidgetItem *item = listWidget->itemAt(pos);
+
+    if (!item) {
+        return;
+    }
+
+    QMenu contextMenu(this);
+    QAction *deleteAction = contextMenu.addAction("删除订单");
+    QAction *chosen = contextMenu.exec(listWidget->viewport()->mapToGlobal(pos));
+
+    if (chosen == deleteAction) {
+        //remove from local
+        QString filePath = item->data(Qt::UserRole).toString();
+        QFile::remove(filePath);
+        if (filePath.isEmpty()) {
+            addMsgToMsgServer("警告：该订单缺少文件路径标识，无法删除");
+            return;
+        }
+
+        //remove from vector
+        for (int i = 0; i < fileVector.size(); ++i) {
+            transaction data = fileVector.at(i);
+            if (data.selectFilePath() == filePath) {
+                fileVector.removeAt(i);
+                break;
+            }
+        }
+
+        //remove from list widget
+        int row = listWidget->row(item);
+        delete listWidget->takeItem(row);
+    }
+}
+
+void MainWindow::showFinishedContextMenu(const QPoint &pos)
+{
+    QListWidget *listWidget = ui->finishedTransaction_listWidget;
+    QListWidgetItem *item = listWidget->itemAt(pos);
+
+    if (!item) {
+        return;
+    }
+
+    QMenu contextMenu(this);
+    QAction *deleteAction = contextMenu.addAction("删除订单");
+    QAction *chosen = contextMenu.exec(listWidget->viewport()->mapToGlobal(pos));
+
+    if (chosen == deleteAction) {
+        //remove from local
+        QString filePath = item->data(Qt::UserRole).toString();
+        QFile::remove(filePath);
+        if (filePath.isEmpty()) {
+            addMsgToMsgServer("警告：该订单缺少文件路径标识，无法删除");
+            return;
+        }
+
+        //remove from vector
+        for (int i = 0; i < finishedFileVector.size(); ++i) {
+            transaction data = finishedFileVector.at(i);
+            if (data.selectFilePath() == filePath) {
+                finishedFileVector.removeAt(i);
+                break;
+            }
+        }
+
+        //remove from list widget
+        int row = listWidget->row(item);
+        delete listWidget->takeItem(row);
+    }
 }
 
 //client-server function
