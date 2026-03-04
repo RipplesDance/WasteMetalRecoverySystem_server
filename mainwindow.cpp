@@ -455,7 +455,6 @@ void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type)
         for(auto value : materialConcentration_list)
             if(value)
                 value_list.append(*value);
-        qDebug()<<materialConcentration_list.length()<<value_list.length() << quo.readAllRecoveryCost().length();
         if(value_list.length() != quo.readAllRecoveryCost().length())
         {
             addMsgToMsgServer("无法发送初始包，长度不匹配");
@@ -540,6 +539,7 @@ void MainWindow::onManageBatteryTypeFrame()
 void MainWindow::onUpdateQuotationFrame()
 {
     quotation_dialog->clearListWidget();
+    quotation_dialog->originalCost = recoveryCost();
     quotation_dialog->reset();
     quotation_dialog->show();
 

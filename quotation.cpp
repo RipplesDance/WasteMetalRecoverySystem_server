@@ -64,17 +64,13 @@ void quotation::changeBatteryValue(QString key, batteryMaterialConcentration* va
         batteryMaterialConcentration *oldData = batteryMap.take(key);
         if(oldData != value)
             delete oldData;
-        batteryMap.insert(key,value);
     }
-    else
-        delete value;
-
+    batteryMap.insert(key,value);
 }
 
 void quotation::changeRecoveryCostValue(QString key, recoveryCost value)
 {
-    if(recoveryCostMap.contains(key))
-        recoveryCostMap.insert(key,value);
+    recoveryCostMap.insert(key,value);
 }
 
 bool quotation::changeBatteryNameKey(QString newKey, QString oldKey)
@@ -114,7 +110,6 @@ bool quotation::removeRecoveryCostByName(QString key)
         return false;
     }
     recoveryCostMap.remove(key);
-    qDebug()<<recoveryCostMap.values().length();
     return true;
 }
 
@@ -179,9 +174,6 @@ bool quotation::saveRecoveryCostToLocal(QString key, recoveryCost data)
     QString fileName =key.toUtf8().toBase64();
 
     QFile file(recoveryCostPath + "/" + fileName + ".dat");
-
-//    qDebug()<<recoveryCostPath + "/" + fileName + ".dat";
-
     if(!file.open(QIODevice::WriteOnly))
     {
         qDebug()<<"无法打开文件"+fileName;
@@ -393,15 +385,16 @@ double quotation::quotationCaculator(QString type, double energyDensity, double 
     {
         cost = this->cost;
     }
-//    qDebug()<<cost << metal_price << weight;
 
+    double recyclingPrice = 0;
     if(SOH >= 0.8 && energyDensity > 0)
     {
         //reusable
-        double finalPrice = weight * energyDensity * SOH;
+        recyclingPrice = weight * energyDensity * SOH;
         if(SOH>=0.9)
-            return finalPrice * cost.unitPrice_90;
-        return finalPrice * cost.unitPrice_80;
+            recyclingPrice *= cost.unitPrice_90;
+        else
+            recyclingPrice *= cost.unitPrice_80;
     }
 
     double positiveMaterial = weight * battery->positiveMaterialsRatio * battery->positiveMaterial_recycleRatio;
@@ -425,7 +418,7 @@ double quotation::quotationCaculator(QString type, double energyDensity, double 
     double finalPrice = (li_quotation+co_quotation+mn_quotation+ni_quotation+cu_quotation)
             - cost.price_per_kilo * weight;
 
-    return finalPrice > 0 ? finalPrice* (1 - cost.profit) : 0;
+    return finalPrice > recyclingPrice ? finalPrice* (1 - cost.profit) : recyclingPrice;
 
 }
 

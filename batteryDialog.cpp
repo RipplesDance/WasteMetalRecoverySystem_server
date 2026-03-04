@@ -21,7 +21,6 @@ void batteryDialog::init()
 
 void batteryDialog::handleItemChanged(QTreeWidgetItem *item, int column)
 {
-    qDebug()<<"batteryDialog:item changed";
     if(!itemMap.contains(item))return;
     QString oldKey = itemMap.value(item);
     QString newKey = item->text(0);
@@ -45,6 +44,7 @@ void batteryDialog::handleItemChanged(QTreeWidgetItem *item, int column)
         ui->batteryInfo_treeWidget->blockSignals(false);
 
         batteryMaterialConcentration* value = fetchDataFromItem(item);
+        qDebug()<<"batteryDialog:batteryChanged " << value->li_recycleRatio;
         emit batteryChanged(oldKey, value);
         return;
     }
@@ -57,6 +57,7 @@ void batteryDialog::handleItemChanged(QTreeWidgetItem *item, int column)
         return;
     }
     itemMap[item] = newKey;
+    qDebug()<<"batteryDialog:batteryNameChanged";
     emit batteryNameChanged(newKey, oldKey);
 
 }
