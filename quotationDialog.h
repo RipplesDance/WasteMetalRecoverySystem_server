@@ -23,6 +23,7 @@ public:
     void setRecoveryCost(recoveryCost data);
     void setFinalPrice(double finalPrice);
     void clearListWidget();
+    void focusFirstOnListWidget();
 
 signals:
     void selected(QString key);

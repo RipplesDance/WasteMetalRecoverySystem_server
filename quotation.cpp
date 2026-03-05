@@ -4,13 +4,32 @@ quotation::quotation()
 {
     init();
 
-//    batteryMaterialConcentration* LCO = new batteryMaterialConcentration(0.071,0.602,0,0,0.1, 0.93, 0.35);
-//    LCO->setRecycleRatio(0.85, 0.95,0,0,0.98,0.95,0.95);
-//    batteryMap.insert("钴酸锂电池", LCO);
+    if(batteryMap.isEmpty())
+    {
+        batteryMaterialConcentration* LCO = new batteryMaterialConcentration(0.071,0.602,0,0,0.1, 0.93, 0.35);
+        LCO->setRecycleRatio(0.85, 0.95,0,0,0.98,0.95,0.95);
+        batteryMap.insert("钴酸锂电池", LCO);
 
-//    recoveryCost cost;
-//    cost.setProperty(0.3, 0.35,45,0.2);
-//    recoveryCostMap.insert("钴酸锂电池", cost);
+        recoveryCost cost;
+        cost.setProperty(0.3, 0.35,45,0.2);
+        cost.isUpdated = true;
+        cost.LCE_transitionRatio = 0.85;
+        cost.CoSo4_transitionRatio = 0.85;
+        recoveryCostMap.insert("钴酸锂电池", cost);
+
+        saveBatteryToLocal("钴酸锂电池", LCO);
+        saveRecoveryCostToLocal("钴酸锂电池", cost);
+    }
+    if(!metal_price.isUpdated)
+    {
+        metal_price.liPrice = 136038;
+        metal_price.mnPrice = 6940;
+        metal_price.coPrice = 96664;
+        metal_price.niPrice = 31645;
+        metal_price.cuPrice = 99605;
+        metal_price.isUpdated = true;
+        saveMetalPriceToLocal(metal_price);
+    }
 
 }
 
@@ -415,7 +434,7 @@ double quotation::quotationCaculator(QString type, double energyDensity, double 
     double cu_quotation = weight * battery->cu * battery->cu_recycleRatio * (metal_price.cuPrice/1000);
 
     //final price
-    double finalPrice = (li_quotation+co_quotation+mn_quotation+ni_quotation+cu_quotation)
+    double finalPrice = (li_quotation+ co_quotation+ mn_quotation+ ni_quotation+ cu_quotation)
             - cost.price_per_kilo * weight;
 
     return finalPrice > recyclingPrice ? finalPrice* (1 - cost.profit) : recyclingPrice;

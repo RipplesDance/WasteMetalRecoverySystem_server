@@ -63,9 +63,13 @@ void quotationDialog::offFocus()
     if(!ui->batteryName_listWidget->currentItem()) return;
     if(ui->batteryName_listWidget->currentItem()->text().isEmpty()) return;
 
+    qDebug()<<"quotationDialog::offFocus "<<ui->batteryName_listWidget->currentRow();
     double weight = ui->weight->value();
-    if(weight == 0) return;
-
+    if(weight == 0)
+    {
+        ui->finalPrice->setValue(0);
+        return;
+    }
     double energyDensity = ui->energyDensity->value();
     double SOH = ui->SOH->value()/100;
     if(SOH >= 0.8 && energyDensity > 0)
@@ -84,12 +88,21 @@ void quotationDialog::offFocus()
     cost.NiSo4_transitionRatio = ui->NiSo4_transitionRatio->value()/100;
     cost.MnSo4_transitionRatio = ui->MnSo4_transitionRatio->value()/100;
 
+    qDebug()<<"quotationDialog::offFocus "<< ui->batteryName_listWidget->currentItem()->text() <<cost;
     emit calculator(ui->batteryName_listWidget->currentItem()->text(), energyDensity, weight, SOH, cost);
 }
 
 void quotationDialog::setFinalPrice(double finalPrice)
 {
     ui->finalPrice->setValue(finalPrice);
+}
+
+void quotationDialog::focusFirstOnListWidget()
+{
+    ui->batteryName_listWidget->setCurrentRow(0);
+
+    QString firstName = ui->batteryName_listWidget->currentItem()->text();
+    emit selected(firstName);
 }
 
 void quotationDialog::setRecoveryCost(recoveryCost data)
@@ -122,6 +135,7 @@ void quotationDialog::reset()
 
 void quotationDialog::itemClickedHandler(QListWidgetItem* item)
 {
+    ui->batteryName_listWidget->setCurrentItem(item);
     QString name = item->text();
     emit selected(name);
 }

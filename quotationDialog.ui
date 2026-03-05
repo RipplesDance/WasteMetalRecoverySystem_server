@@ -16,6 +16,9 @@
     <height>950</height>
    </size>
   </property>
+  <property name="focusPolicy">
+   <enum>Qt::StrongFocus</enum>
+  </property>
   <property name="windowTitle">
    <string>报价参数</string>
   </property>

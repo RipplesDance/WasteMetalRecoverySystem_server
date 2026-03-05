@@ -547,8 +547,6 @@ void MainWindow::onManageBatteryTypeFrame()
 void MainWindow::onUpdateQuotationFrame()
 {
     quotation_dialog->clearListWidget();
-    quotation_dialog->originalCost = recoveryCost();
-    quotation_dialog->reset();
     quotation_dialog->show();
 
     QList<QString> list = quo.readAllBatteryType();
@@ -556,6 +554,9 @@ void MainWindow::onUpdateQuotationFrame()
     {
         quotation_dialog->addItemToListWidget(type);
     }
+
+    if(!list.isEmpty())
+        quotation_dialog->focusFirstOnListWidget();
 }
 
 void MainWindow::onBatterySelected(QString key)
