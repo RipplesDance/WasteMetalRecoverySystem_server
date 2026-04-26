@@ -376,6 +376,10 @@ void MainWindow::sendMsgToSocket(QTcpSocket* socket, int msg_type, transaction d
         {
             out<<data;
         }
+        else if(msg_type == NEW_TRANSACTION)
+        {
+            out << data.selectSellingWay();
+        }
 
         if(socket->write(block) == -1)
             socket->abort();

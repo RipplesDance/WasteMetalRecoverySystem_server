@@ -30,6 +30,16 @@ void dealDialog::updateTransaction(transaction data)
     ui->usage_label->setText("回收用途:" + data.selectUsagePurpose());
     ui->sellingWay_label->setText(QString("出售方式:%1")
                                   .arg(data.selectSellingWay() == "offline" ? "上门回收" : "线上邮寄"));
+    if(data.selectSellingWay() == "online")
+    {
+        ui->post_address_label->setText("邮寄地址：" + data.post_address);
+        ui->sent_address_label->setText("发送地址：" + data.sent_address.getFullAddress(&data.sent_address));
+    }
+    else
+    {
+        ui->post_address_label->setText("");
+        ui->sent_address_label->setText("上门地址：" + data.sent_address.getFullAddress(&data.sent_address));
+    }
 
     QDateTime submit = data.selectSubmittedTime();
     QDateTime result = data.selectResultTime();
