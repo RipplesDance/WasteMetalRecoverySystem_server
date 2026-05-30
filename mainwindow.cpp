@@ -511,7 +511,8 @@ QTcpSocket* MainWindow::fetchSocketFromUuid(QString uuid)
 
 void MainWindow::saveTransactionToLocal(transaction data)
 {
-    QFile file(data.selectFilePath());
+    QString filePath = QString(transcationPath +"/%1.dat").arg(data.getId());
+    QFile file(filePath);
     if(!file.open(QIODevice::WriteOnly))
     {
         addMsgToMsgServer("无法打开本地订单文件:"+data.getId());
@@ -788,6 +789,9 @@ void MainWindow::showPendingContextMenu(const QPoint &pos)
             }
         }
 
+        //update label
+        updateLabel();
+
         //remove from list widget
         int row = listWidget->row(item);
         delete listWidget->takeItem(row);
@@ -825,9 +829,14 @@ void MainWindow::showFinishedContextMenu(const QPoint &pos)
             }
         }
 
+        //update label
+        updateLabel();
+
         //remove from list widget
         int row = listWidget->row(item);
         delete listWidget->takeItem(row);
+
+
     }
 }
 

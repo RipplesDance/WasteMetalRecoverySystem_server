@@ -122,6 +122,8 @@ private:
     QFile logFile;
     //quotation model parameters
     quotation quo;
+    //file path
+    QString transcationPath = "bin/transactions";
 
 };
 #endif // MAINWINDOW_H
